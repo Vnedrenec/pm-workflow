@@ -1,0 +1,1 @@
+Round: 2  |  Stage: spec  |  Confirmed findings: 3  |  Failed runs: 1  |  Coverage: partial

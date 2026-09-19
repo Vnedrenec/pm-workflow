@@ -1,0 +1,71 @@
+# ключ правила	дом (файл#якорь). Одна строка на правило; держит scripts/check-rules.sh (критерий 1). Генерация: заголовок правила → якорь.
+Таблица ролей	docs/roles.md#roles-table
+Конфликты интересов: автор ≠ проверяющий	docs/roles.md#author-not-verifier
+Предел роли: исполнитель стадии не перестраивает конвейер	docs/roles.md#role-limit
+Порядок старта — родитель в `backlog`	docs/pipeline.md#start-order
+Первое действие при любом пробуждении — `multica issue children`	docs/pipeline.md#children-first
+Первая стадия нового репозитория — bootstrap	docs/pipeline.md#bootstrap
+Барьер стадии закрывается только терминальными статусами	docs/pipeline.md#barrier-terminal
+Что делать на каждом барьере	docs/pipeline.md#barrier-procedure
+Барьер стадии кода / механики — зелёный CI на голове PR	docs/pipeline.md#code-barrier
+Стадия синтеза круга — отдельно, если панель отработала, а Reviewer умер	docs/pipeline.md#synthesis-stage
+Стадия, закрывшаяся через `cancelled` без объяснения, не промоутируется	docs/pipeline.md#cancelled-needs-reason
+Запись о передаче стадии и сверка исполнителя	docs/pipeline.md#handoff-record
+Следующую карточку поднимать на `in_review`, не ждать `done`	docs/pipeline.md#next-card-on-in-review
+Один круг ревью = одна подзадача	docs/pipeline.md#one-round-one-subtask
+Каждая подзадача самодостаточна	docs/pipeline.md#self-sufficient-body
+Тела стадий собираются из шаблонов	docs/pipeline.md#body-from-template
+Постановку — на аудит ДО исполнителя	docs/pipeline.md#spec-audit-first
+Конверт круга — в теле стадии аудита ДО промоции	docs/pipeline.md#audit-envelope
+Запасной исполнитель в теле каждой стадии кода	docs/pipeline.md#backup-executor
+Состав тела стадии кода	docs/pipeline.md#code-stage-body
+Запрет подагентов на стадии кода	docs/pipeline.md#no-subagents
+Мутации проверять прогоном, не предсказанием	docs/pipeline.md#mutation-by-run
+Отчёт стадии кода — пять разделов	docs/pipeline.md#builder-report
+Возобновление работы — только упоминанием исполнителя	docs/pipeline.md#resume-by-mention
+Упоминание = новый прогон; упоминать только когда прогон нужен	docs/pipeline.md#mention-policy
+Один пишущий агент на дерево	docs/pipeline.md#one-writer
+Влить и доложить	docs/pipeline.md#merge-and-report
+Постановка едет в коммите	docs/pipeline.md#spec-in-commit
+Связь PR ↔ карточка — слаг в заголовке PR; карточка до заголовка	docs/pipeline.md#pr-slug
+Комментарий в карточку — тем же действием, что доклад владельцу	docs/pipeline.md#comment-with-report
+Намерение живёт в git, состояние — в трекере	docs/pipeline.md#intent-in-git
+Ключи метаданных родителя	docs/pipeline.md#metadata-keys
+Строка счёта — первая строка отчёта Reviewer, проверяется посимвольно	docs/review-cycle.md#score-line
+Цикл закрывается только при двух условиях одновременно	docs/review-cycle.md#closure
+Реестр находок — карточка под родителем	docs/review-cycle.md#registry
+Коды исключений — ровно три, других нет	docs/review-cycle.md#exception-codes
+Предохранитель: три круга без сходимости — стоп и владелец	docs/review-cycle.md#fuse
+Ноль находок ≠ чистый результат при мёртвом прогоне	docs/review-cycle.md#dead-run-zero
+Комментарий закрытия перечисляет исключённые строки	docs/review-cycle.md#closure-comment
+Предмет аудита — весь дифф, включая текст	docs/review-cycle.md#audit-subject
+Каждый круг находит свой слой; ревьюеру — замысел; находку воспроизводить до починки	docs/review-cycle.md#round-layers
+Пара (агент, вопрос) не повторяется два круга подряд	docs/review-cycle.md#panel
+Один представитель семейства моделей на круг; таблица прогонов	docs/review-cycle.md#one-per-family
+Scorecard — строка на прогон, гейт закрытия круга	docs/review-cycle.md#scorecard
+Модель прогона — только из `multica runtime usage`	docs/review-cycle.md#model-from-usage
+Класс ставится до промоции стадии 1	docs/impact-class.md#classify-first
+`гигиена` — по одному кругу, без цикла до сходимости	docs/impact-class.md#hygiene
+Таблица лимитов по классу	docs/impact-class.md#limits-table
+`деньги`: в первом круге Reviewer обязан включить Architecture Auditor	docs/impact-class.md#money-arch-auditor
+`done` на родителе — только владелец	docs/ownership.md#parent-done
+Изменение объёма — владелец	docs/ownership.md#scope-change
+`accepted-risk` и `spun-out` — решение владельца	docs/ownership.md#exceptions-are-owner
+Класс влияния под сомнением — вопрос владельцу до стадии 1	docs/ownership.md#class-doubt
+Два PR на один дефект — технический вердикт, не мерж обоих	docs/ownership.md#two-prs
+Эскалация к владельцу вместо лечения брифами	docs/ownership.md#escalation
+Чего не делать	docs/ownership.md#do-not
+Доклад владельцу: итог, цена, вопрос	docs/ownership.md#owner-report
+слой 1: Смена статуса не поднимает прогон; поднимает только упоминание	skills/agent-runtime-gotchas/SKILL.md#mention-is-run
+слой 1: `in_review` не закрывает барьер стадии	skills/agent-runtime-gotchas/SKILL.md#in-review-not-terminal
+слой 1: Родитель, созданный не в `backlog`, запускает второй прогон PM	skills/agent-runtime-gotchas/SKILL.md#parent-backlog-first
+слой 1: Строка «→ done» в теле подзадачи	skills/agent-runtime-gotchas/SKILL.md#done-line-in-body
+слой 1: `done` терминален и событий не порождает	skills/agent-runtime-gotchas/SKILL.md#done-is-silent
+слой 1: После `blocked` ни `todo`, ни `backlog → todo` не создают задачу	skills/agent-runtime-gotchas/SKILL.md#rerun-after-promote
+слой 1: `cancelled` и снятие исполнителя не гасят прогон	skills/agent-runtime-gotchas/SKILL.md#cancel-does-not-stop
+слой 1: Барьер срабатывает по статусам, а не по наличию отчёта	skills/agent-runtime-gotchas/SKILL.md#barrier-by-status
+слой 1: Модель прогона не хранится в задаче и не определима изнутри	skills/agent-runtime-gotchas/SKILL.md#model-not-in-task
+слой 1: `multica skill update` перезаписывает без версий и отката	skills/agent-runtime-gotchas/SKILL.md#skill-no-versions
+слой 1: `daemon restarted while task was in flight` — платформа перезапускает сама	skills/agent-runtime-gotchas/SKILL.md#daemon-restart-retry
+слой 1: `2>&1` при разборе `--output json` делает успешную запись похожей на отказ	skills/agent-runtime-gotchas/SKILL.md#json-no-stderr-merge
+слой 1: Долгоживущий процесс `multica` — демон воркспейса	skills/agent-runtime-gotchas/SKILL.md#never-kill-multica-by-name

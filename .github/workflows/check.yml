@@ -1,0 +1,25 @@
+name: check
+
+on: [pull_request, push]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      LC_ALL: C.UTF-8
+      STOP_WORDS_PRIVATE: ${{ secrets.STOP_WORDS_PRIVATE }}
+      # заголовок PR и сообщения коммитов диапазона сторож проверяет только там, где история обязана быть чистой
+      # (переменная репозитория SANITIZED_HISTORY=1 — новый репозиторий); в архивном репозитории слаг в заголовке допустим
+      PR_TITLE: ${{ vars.SANITIZED_HISTORY == '1' && github.event.pull_request.title || '' }}
+      PR_BASE_SHA: ${{ vars.SANITIZED_HISTORY == '1' && github.event.pull_request.base.sha || '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: check-rules (внутри — build-skills.sh --check и сторож стоп-слов)
+        run: bash scripts/check-rules.sh
+      - name: stop-words in history
+        if: vars.SANITIZED_HISTORY == '1'
+        run: bash scripts/check-rules.sh --history
+      - name: parse-score-line self-test
+        run: bash scripts/parse-score-line.sh --self-test
