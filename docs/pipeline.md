@@ -1,237 +1,237 @@
-# Конвейер: старт, барьеры, стадии, метаданные
+# Pipeline: start, barriers, stages, metadata
 
-Слой 2 регламента воркспейса. Формат правила — `README.md`; адрес правила — `pipeline.md#<якорь>`. Источники текста: снимок инструкций PM на 18.09.2026 (в приватном архиве) и файл проекта-источника `docs/engineering/pm-workflow.md` §2.3–§2.8 (общая часть; проектное осталось в проекте). Трекер конвейера — Multica: статусы `todo / in_progress / in_review / done / backlog / cancelled / blocked`. Трекер проекта и его статусы — слой 3, в файле проекта.
+Layer 2 of the workspace regulation. Rule format — `README.md`; rule address — `pipeline.md#<anchor>`. Sources of the text: the snapshot of the PM instructions as of 2026-09-18 (in the private archive) and the source-project file `docs/engineering/pm-workflow.md` §2.3–§2.8 (the common part; the project-specific part stayed in the project). The pipeline tracker is Multica: statuses `todo / in_progress / in_review / done / backlog / cancelled / blocked`. The project tracker and its statuses are layer 3, in the project file.
 
-## Старт конвейера
+## Pipeline start
 
-### Порядок старта — родитель в `backlog` `[ревью: PM @ создание родителя]`
+### Start order — the parent in `backlog` `[review: PM @ parent creation]`
 <a id="start-order"></a>
 
-Карточка, назначенная на агента в статусе, отличном от `backlog`, запускает прогон немедленно. Родитель назначен на PM — созданный сразу в `in_progress`, он поднимает второй прогон PM, который ничего не знает о подзадачах, созданных следом, и строит свои. Порядок строгий:
+A card assigned to an agent in a status other than `backlog` starts a run immediately. The parent is assigned to the PM — created straight in `in_progress`, it raises a second PM run that knows nothing about the sub-issues created right after it and builds its own. The order is strict:
 
-1. Родитель — `--status backlog`; прогон не стартует.
-2. Подзадачи: первая стадия `todo`, остальные `backlog` (иначе вся цепочка стартует разом).
-3. Метаданные счётчика (`#metadata-keys`) и класс влияния (`impact-class.md#classify-first`).
-4. Только теперь `multica issue status <parent-id> in_progress`.
+1. The parent — `--status backlog`; no run starts.
+2. Sub-issues: the first stage `todo`, the rest `backlog` (otherwise the whole chain starts at once).
+3. The counter metadata (`#metadata-keys`) and the impact class (`impact-class.md#classify-first`).
+4. Only now `multica issue status <parent-id> in_progress`.
 
-Подъём родителя из `backlog` будит PM ещё раз — это нормально.
+Raising the parent from `backlog` wakes the PM once more — that is normal.
 
 ```bash
 multica issue create --title "..." --parent <id> --assignee <agent> --stage <N> --status todo
 multica issue create --title "..." --parent <id> --assignee <agent> --stage <N+1> --status backlog
 ```
 
-Инцидент: [B](incidents.md#inc-b) — два одинаковых первых стадии, обе отработали впустую.
+Incident: [B](incidents.md#inc-b) — two identical first stages, both worked for nothing.
 
-### Первое действие при любом пробуждении — `multica issue children` `[ревью: PM @ пробуждение]`
+### First action on any wakeup — `multica issue children` `[review: PM @ wakeup]`
 <a id="children-first"></a>
 
-При любом пробуждении первым делом `multica issue children <parent-id>`: сначала раскладка, потом решение. Существующая стадия никогда не пересоздаётся.
+On any wakeup, the first thing is `multica issue children <parent-id>`: the layout first, then the decision. An existing stage is never recreated.
 
-Инцидент: [B](incidents.md#inc-b).
+Incident: [B](incidents.md#inc-b).
 
-### Первая стадия нового репозитория — bootstrap `[ревью: PM @ создание стадий]`
+### First stage of a new repository — bootstrap `[review: PM @ stages creation]`
 <a id="bootstrap"></a>
 
-Первая стадия любого нового репозитория — задача по чеклисту скилла `project-bootstrap-checklist` (гейты границ с провокацией на каждое правило, пороги покрытия и `skipped` в отчётах, контракт required checks, реестр исключений сканеров, своя БД каждому агенту, outbox первым несущим блоком). Стадия кода не промоутируется, пока bootstrap не закрыт.
+The first stage of any new repository is a task per the checklist of the `project-bootstrap-checklist` skill (boundary gates with a mutation per rule, coverage thresholds and `skipped` in reports, the required checks contract, a registry of scanner exceptions, a database of its own for every agent, outbox as the first load-bearing block). The code stage is not promoted until bootstrap is closed.
 
-Инцидент: нет
+Incident: none
 
-## Барьеры
+## Barriers
 
-### Барьер стадии закрывается только терминальными статусами `[ревью: PM @ барьер стадии]`
+### A stage barrier closes only on terminal statuses `[review: PM @ stage barrier]`
 <a id="barrier-terminal"></a>
 
-Барьер стадии закрывается, только когда ВСЕ её подзадачи в терминальном статусе: `done` или `cancelled`. `in_review` терминальным не является: барьер открыт, PM никто не будит, конвейер стоит (обход — слой 1, `agent-runtime-gotchas#in-review-not-terminal`). Поэтому тело КАЖДОЙ подзадачи несёт явную строку «по завершении перевести в `done`: `multica issue status <id> done`; не оставлять `in_review`» — без неё подзадача не создаётся. Приёмка не исчезает — переезжает с подзадачи на барьер: PM читает результат при пробуждении и решает, принят ли он или нужен ещё круг. `done` на РОДИТЕЛЕ по-прежнему ставит только владелец (`ownership.md#parent-done`).
+A stage barrier closes only when ALL its sub-issues are in a terminal status: `done` or `cancelled`. `in_review` is not terminal: the barrier stays open, nobody wakes the PM, the pipeline stands still (workaround — layer 1, `agent-runtime-gotchas#in-review-not-terminal`). Therefore the body of EVERY sub-issue carries the explicit line "on completion set it to `done`: `multica issue status <id> done`; do not leave it `in_review`" — without it the sub-issue is not created. Acceptance does not disappear — it moves from the sub-issue to the barrier: the PM reads the result on wakeup and decides whether it is accepted or another round is needed. `done` on the PARENT is still set only by the owner (`ownership.md#parent-done`).
 
-Инцидент: [B](incidents.md#inc-b).
+Incident: [B](incidents.md#inc-b).
 
-### Что делать на каждом барьере `[ревью: PM @ барьер стадии]`
+### What to do at every barrier `[review: PM @ stage barrier]`
 <a id="barrier-procedure"></a>
 
-1. `multica issue children <parent-id>` — раскладка по стадиям.
-2. Прочитать отчёт закрывшейся стадии: не статус, а комментарий с результатом. Барьер срабатывает по статусам, а не по наличию отчёта (`agent-runtime-gotchas#barrier-by-status`) — отсутствие отчёта при закрытой стадии см. `#synthesis-stage`.
-3. Прочитать метаданные родителя (`#metadata-keys`).
-4. Решить: находок нет → следующая стадия; находки есть и кругов меньше предела класса → стадия доработки, за ней новая стадия ревью; предел кругов достигнут → **стоп**, родитель в `blocked`, владельцу — что именно не сходится (`review-cycle.md#fuse`, `impact-class.md#limits-table`); находка меняет объём → стоп и вопрос владельцу независимо от счётчика (`ownership.md#scope-change`).
-5. Обновить метаданные.
-6. Промоутировать следующую стадию: `multica issue status <child-id> todo`.
+1. `multica issue children <parent-id>` — the layout by stages.
+2. Read the report of the stage that closed: not the status but the comment with the result. The barrier triggers on statuses, not on the presence of a report (`agent-runtime-gotchas#barrier-by-status`) — for a missing report with the stage closed see `#synthesis-stage`.
+3. Read the parent metadata (`#metadata-keys`).
+4. Decide: no findings → the next stage; findings and rounds below the class limit → a rework stage, followed by a new review stage; the round limit reached → **stop**, the parent to `blocked`, to the owner — what exactly fails to converge (`review-cycle.md#fuse`, `impact-class.md#limits-table`); a finding changes the scope → stop and a question to the owner regardless of the counter (`ownership.md#scope-change`).
+5. Update the metadata.
+6. Promote the next stage: `multica issue status <child-id> todo`.
 
-Перед промоцией прочитать описание подзадачи: если её заявленные зависимости не выполнены или она противоречит раскладке родителя — оставить в `backlog` и спросить, а не двигать по расписанию.
+Before the promotion read the sub-issue description: if its declared dependencies are not met or it contradicts the parent layout — leave it in `backlog` and ask, do not move it on schedule.
 
-Инцидент: нет
+Incident: none
 
-### Барьер стадии кода / механики — зелёный CI на голове PR `[ревью: PM @ барьер стадии кода]`
+### The code / mechanics stage barrier — green CI on the PR head `[review: PM @ code stage barrier]`
 <a id="code-barrier"></a>
 
-Стадия кода / механики закрывается только зелёным CI на голове PR. Исполнитель не ставит `done`, пока `gh pr checks <pr>` по голове своего последнего коммита не зелёный целиком; красное — вписать вывод в отчёт и перевести подзадачу в `blocked`. Локальные прогоны — для себя; для барьера — только CI. Список required checks — контракт в репозитории проекта (слой 3: напр. `.github/branch-protection.json`, `AGENTS.md` проекта); барьер привязан к нему, а не к перечню в брифе. PM не проверяет CI сам — проверяет, что исполнитель приложил зелёный вывод по нужной голове.
+The code / mechanics stage closes only on green CI on the PR head. The executor does not set `done` until `gh pr checks <pr>` on the head of his last commit is green as a whole; anything red — paste the output into the report and set the sub-issue to `blocked`. Local runs are for yourself; for the barrier — only CI. The required checks list is a contract in the project repository (layer 3: e.g. `.github/branch-protection.json`, the project `AGENTS.md`); the barrier is bound to it, not to the list in the brief. The PM does not check CI himself — he checks that the executor attached green output for the right head.
 
-Инцидент: [H](incidents.md#inc-h) — решение владельца 2026-09-14.
+Incident: [H](incidents.md#inc-h) — owner decision 2026-09-14.
 
-### Стадия синтеза круга — отдельно, если панель отработала, а Reviewer умер `[ревью: PM @ барьер стадии аудита]`
+### The round synthesis stage — separate, when the panel worked and the Reviewer died `[review: PM @ audit stage barrier]`
 <a id="synthesis-stage"></a>
 
-Признак на барьере: стадия закрыта, у аудиторских подзадач отчёты есть, у стадии Reviewer — только «панель разослана»: ни строки счёта, ни реестра, ни личного воспроизведения. Лечение — отдельная стадия только на синтез, с явной строкой «аудит не повторять, панель не рассылать» и перечнем id уже отработавших подзадач; иначе Reviewer соберёт панель заново, и воркспейс заплатит за ту же работу второй раз. Мержить по «семи находкам из трёх отчётов» без синтеза нельзя: это абзацы текста, а не проверенный круг — круг отличает склейка по корневой причине, личное воспроизведение блокирующих и строка счёта (`review-cycle.md#score-line`).
+The sign at the barrier: the stage is closed, the auditor sub-issues have reports, the Reviewer stage has only "the panel has been sent out": no score line, no registry, no personal reproduction. The cure is a separate stage for synthesis only, with the explicit line "do not repeat the audit, do not send the panel out" and the list of ids of the sub-issues that already worked; otherwise the Reviewer will assemble the panel anew and the workspace will pay for the same work a second time. Merging on "seven findings from three reports" without synthesis is not allowed: those are paragraphs of text, not a verified round — a round is distinguished by stitching along the root cause, personal reproduction of the blocking ones, and the score line (`review-cycle.md#score-line`).
 
-Инцидент: [E](incidents.md#inc-e) — воспроизведено дважды (круг 3 постановки и круг 1 кода).
+Incident: [E](incidents.md#inc-e) — reproduced twice (specification round 3 and code round 1).
 
-### Стадия, закрывшаяся через `cancelled` без объяснения, не промоутируется `[ревью: PM @ барьер стадии]`
+### A stage closed through `cancelled` without an explanation is not promoted `[review: PM @ stage barrier]`
 <a id="cancelled-needs-reason"></a>
 
-Если предыдущая стадия закрылась через `cancelled` без объяснения — сначала установить причину, потом промоутировать следующую.
+If the previous stage closed through `cancelled` without an explanation — establish the cause first, promote the next stage second.
 
-Инцидент: нет
+Incident: none
 
-### Запись о передаче стадии и сверка исполнителя `[ревью: PM @ промоция стадии]`
+### Hand-off record for a stage and executor reconciliation `[review: PM @ promotion]`
 <a id="handoff-record"></a>
 
-Каждую передачу стадии PM записывает комментарием на карточке стадии: кто решил, почему, кому (шаблон — `handoff-comment.md`). Передача без записи — инцидент. При каждом пробуждении PM сверяет исполнителя только что закрывшейся стадии с тем, кто был назначен при промоции: расхождение (`assignee_changed` не от PM) — ролевой инцидент с разбором в тот же день, независимо от качества результата.
+The PM records every stage hand-off with a comment on the stage card: who decided, why, to whom (template — `handoff-comment.md`). A hand-off without a record is an incident. On every wakeup the PM reconciles the executor of the stage that just closed with who was assigned at the promotion: a divergence (`assignee_changed` not from the PM) is a role incident with an analysis the same day, regardless of the quality of the result.
 
-Инцидент: нет
+Incident: none
 
-### Следующую карточку поднимать на `in_review`, не ждать `done` `[ревью: PM @ комментарий приёмки]`
+### Raise the next card on `in_review`, do not wait for `done` `[review: PM @ acceptance comment]`
 <a id="next-card-on-in-review"></a>
 
-`done` терминален и событий не порождает: следующая карточка после `done` родителя сама не стартует. Следующую карточку поднимать при уходе текущей в `in_review`; в комментарии приёмки называть, что уже запущено следом.
+`done` is terminal and emits no events: the next card after the parent's `done` does not start by itself. Raise the next card when the current one goes to `in_review`; in the acceptance comment name what has already been started to follow.
 
-Инцидент: [L](incidents.md#inc-l) — конвейер простоял до ручного вопроса.
+Incident: [L](incidents.md#inc-l) — the pipeline idled until a manual question.
 
-## Стадии и их тела
+## Stages and their bodies
 
-### Один круг ревью = одна подзадача `[ревью: PM @ создание стадии]`
+### One review round = one sub-issue `[review: PM @ stage creation]`
 <a id="one-round-one-subtask"></a>
 
-Задачу ревью не переиспользовать повторными комментариями: барьер стадии срабатывает один раз, повторные комментарии PM не разбудят.
+Do not reuse a review task with repeated comments: the stage barrier triggers once, repeated comments will not wake the PM.
 
-Инцидент: нет
+Incident: none
 
-### Каждая подзадача самодостаточна `[ревью: PM @ промоция стадии]`
+### Every sub-issue is self-sufficient `[review: PM @ promotion]`
 <a id="self-sufficient-body"></a>
 
-Исполнитель не видит ни чата, ни соседних карточек: цель, входы, ожидаемый результат, критерии готовности — в теле. Находки прошлого круга переносятся ТЕКСТОМ, не ссылкой. Скелет тела — `subtask.md`.
+The executor sees neither the chat nor the neighboring cards: the goal, inputs, expected result, readiness criteria — in the body. Last round's findings are carried over AS TEXT, not as a link. The body skeleton is `subtask.md`.
 
-Инцидент: нет
+Incident: none
 
-### Тела стадий собираются из шаблонов `[ревью: PM @ промоция стадии]`
+### Stage bodies are assembled from templates `[review: PM @ promotion]`
 <a id="body-from-template"></a>
 
-Тело стадии аудита содержит `review-report.md` целиком после строки «Формат отчёта:». Тело стадии кода — блоки «Что легко испортить», «Результат и приёмка», «Запасной исполнитель», «Отчёт», «Завершение» из `subtask.md` дословно (состав — `#code-stage-body`). Тело стадии постановки — строку «Читать: `pm-workflow` `docs/roles.md`, `templates/subtask.md`». PM берёт текст из `references/` своего скилла `pm-workflow`, не из памяти. Обязательные строки шаблона держит `scripts/check-rules.sh`; тела подзадач скрипт не видит — их проверяет PM на промоции и аудитор следующего конвейера.
+The audit stage body contains `review-report.md` in full after the line "Report format:". The code stage body — the "Easy to break", "Result and acceptance", "Backup executor", "Report", "Completion" blocks from `subtask.md` verbatim (composition — `#code-stage-body`). The specification stage body — the line "Read: `pm-workflow` `docs/roles.md`, `templates/subtask.md`". The PM takes the text from the `references/` of his `pm-workflow` skill, not from memory. The template's required lines are held by `scripts/check-rules.sh`; the script does not see sub-issue bodies — the PM checks them at promotion, and so does the auditor of the next pipeline.
 
-Инцидент: нет
+Incident: none
 
-### Постановку — на аудит ДО исполнителя `[ревью: PM @ создание стадий]`
+### The specification goes to audit BEFORE the executor `[review: PM @ stages creation]`
 <a id="spec-audit-first"></a>
 
-Стадия аудита постановки идёт до стадии кода. Ошибка в постановке размножается на всю работу; ошибка в коде ловится ревью. Аудит постановки не заменяет ревью кода после Builder: мутации доказывают, что написанные кейсы умеют падать, и молчат о том, чего в кейсах нет.
+The specification audit stage comes before the code stage. An error in the specification multiplies into all the work; an error in the code is caught by review. The specification audit does not replace the code review after the Builder: mutations prove that the written cases know how to fail and stay silent about what the cases do not contain.
 
-Инцидент: нет
+Incident: none
 
-### Конверт круга — в теле стадии аудита ДО промоции `[ревью: PM @ промоция стадии аудита]`
+### The round envelope — in the audit stage body BEFORE promotion `[review: PM @ audit stage promotion]`
 <a id="audit-envelope"></a>
 
-Число аудиторов, семейства моделей, запрет/разрешение ESC-пула, пара (агент, вопрос) прошлого круга (`review-cycle.md#panel`) пишутся в тело стадии аудита до промоции. Стадия с шаблонным или пустым телом не промоутируется.
+The number of auditors, the model families, the ESC pool prohibition/permission, the previous round's (agent, question) pair (`review-cycle.md#panel`) are written into the audit stage body before promotion. A stage with a boilerplate or empty body is not promoted.
 
-Инцидент: [J](incidents.md#inc-j) — аудитор собрал два security-прогона, включая эскалационный пул, на круг 1 spec-аудита.
+Incident: [J](incidents.md#inc-j) — an auditor assembled two security runs, including the escalation pool, on round 1 of the spec audit.
 
-### Запасной исполнитель в теле каждой стадии кода `[ревью: PM @ промоция стадии кода]`
+### A backup executor in the body of every code stage `[review: PM @ code stage promotion]`
 <a id="backup-executor"></a>
 
-В теле каждой стадии кода — запасной исполнитель другого семейства моделей и признак переключения: `failure_reason` с квотой в `multica agent tasks <agent-id>`. Лимит проверять по `multica agent tasks`, не ждать.
+The body of every code stage carries a backup executor of another model family and the switch sign: `failure_reason` with a quota in `multica agent tasks <agent-id>`. Check the limit via `multica agent tasks`, do not wait.
 
-Инцидент: [M](incidents.md#inc-m) — `provider_quota_limit` посреди дня, запасная линия жила только в голове PM.
+Incident: [M](incidents.md#inc-m) — `provider_quota_limit` in the middle of the day, the backup line lived only in the PM's head.
 
-### Состав тела стадии кода `[ревью: PM @ промоция стадии кода]`
+### Composition of the code stage body `[review: PM @ code stage promotion]`
 <a id="code-stage-body"></a>
 
-Тело стадии кода обязательно содержит: границы работы; что легко испортить и почему; ссылку на правила прогона машины проекта (слой 3, напр. `docs/engineering/pm-workflow.md` §4 в репозитории проекта); строку «мутации проверять прогоном, не предсказанием» (`#mutation-by-run`); запрет подагентов (`#no-subagents`); формат отчёта — блок «Отчёт» из `subtask.md` дословно (`#builder-report`). Тело без любого пункта не промоутируется.
+The code stage body must contain: the work boundaries; what is easy to break and why; a link to the project machine's run rules (layer 3, e.g. `docs/engineering/pm-workflow.md` §4 in the project repository); the line "verify mutations by running, not by prediction" (`#mutation-by-run`); the subagent prohibition (`#no-subagents`); the report format — the "Report" block from `subtask.md` verbatim (`#builder-report`). A body missing any item is not promoted.
 
-Инцидент: нет
+Incident: none
 
-### Запрет подагентов на стадии кода `[ревью: PM @ барьер стадии кода]`
+### No subagents on the code stage `[review: PM @ code stage barrier]`
 <a id="no-subagents"></a>
 
-Исполнитель стадии кода не заводит подагентов и не рассылает свой дифф другим моделям — один прогон, один агент (принцип автор ≠ проверяющий, `roles.md#author-not-verifier`). В отчёте обязательна строка `Подагенты: не заводились`; отчёт без неё или со строкой о подагентах — стадия не принята, `blocked` с вопросом PM.
+The code stage executor does not start subagents and does not send his diff to other models — one run, one agent (the author ≠ verifier principle, `roles.md#author-not-verifier`). The report must carry the line `Subagents: none started`; a report without it or with a line about subagents — the stage is not accepted, `blocked` with a question to the PM.
 
-Инцидент: нет
+Incident: none
 
-### Мутации проверять прогоном, не предсказанием `[ревью: Reviewer @ круг кода]`
+### Verify mutations by running, not by prediction `[review: Reviewer @ code round]`
 <a id="mutation-by-run"></a>
 
-Каждый кейс с островом (кейс, защищающий одну ветку) доказан мутацией: сломать проверяемую строку → красный → вернуть; результат — командой и выводом, не предсказанием «покраснеет». Не предсказывать, какой кейс покраснеет: называть инвариант и требовать доказательства прогоном. Приёмы — скилл `test-guard-discipline`.
+Every island case (a case protecting one branch) is proven by a mutation: break the line under test → red → revert; the result — by command and output, not by the prediction "it will go red". Do not predict which case will go red: name the invariant and demand proof by running. Techniques — the `test-guard-discipline` skill.
 
-Инцидент: [S](incidents.md#inc-s), [O](incidents.md#inc-o).
+Incident: [S](incidents.md#inc-s), [O](incidents.md#inc-o).
 
-### Отчёт стадии кода — пять разделов `[ревью: PM @ барьер стадии кода]`
+### The code stage report — five sections `[review: PM @ code stage barrier]`
 <a id="builder-report"></a>
 
-Первая строка — `Подагенты: не заводились`. Затем пять разделов, каждый непустой: (1) гейты — команда дословно и числа passed/failed/`skipped`; `skipped` = 0, иначе каждый пропуск с причиной; (2) кейсы с островом — кейс → мутация → результат прогона; (3) где решил иначе, чем постановка, и почему; (4) что обещано и не сделано; (5) свои промахи — пустой раздел подозрителен, PM спрашивает до промоции. Отчёт без любого раздела барьер не проходит.
+The first line — `Subagents: none started`. Then five sections, each non-empty: (1) gates — the command verbatim and the passed/failed/`skipped` numbers; `skipped` = 0, otherwise every skip with a reason; (2) island cases — case → mutation → run result; (3) where I decided differently from the specification, and why; (4) promised but not done; (5) own misses — an empty section is suspicious, the PM asks before the promotion. A report missing any section does not pass the barrier.
 
-Инцидент: [P](incidents.md#inc-p), [Q](incidents.md#inc-q).
+Incident: [P](incidents.md#inc-p), [Q](incidents.md#inc-q).
 
-## Возобновление и упоминания
+## Resume and mentions
 
-### Возобновление работы — только упоминанием исполнителя `[ревью: PM @ комментарий возобновления]`
+### Resuming work — only by mentioning the executor `[review: PM @ resume comment]`
 <a id="resume-by-mention"></a>
 
-Смена статуса — запись, а не команда. Перевод карточки из `blocked` или `in_review` обратно в `todo`/`in_progress` не поднимает прогон, если исполнитель не менялся: задача не создаётся, карточка стоит в рабочем статусе без работы (обход — `agent-runtime-gotchas#mention-is-run`). Поэтому в любом комментарии, возобновляющем работу — снятие блокировки, решение владельца, возврат круга на доработку, любое «продолжай», — обязательно упоминание исполнителя `[@Имя](mention://agent/<agent-id>)`. Порядок строгий: (1) комментарий с постановкой И упоминанием; (2) `multica issue status <id> todo`; (3) проверить, что прогон поднялся: `multica agent tasks <agent-id> --output json` содержит задачу с этим `issue_id` в `running`/`pending`/`queued`/`claimed`; не поднялся — упомянуть повторно, не ждать. Обращение к владельцу за решением упоминание исполнителя не заменяет — два адресата, два комментария.
+A status change is a record, not a command. Moving a card from `blocked` or `in_review` back to `todo`/`in_progress` does not raise a run if the executor did not change: no task is created, the card sits in a working status without work (workaround — `agent-runtime-gotchas#mention-is-run`). Therefore any comment that resumes work — unblocking, an owner decision, sending a round back for rework, any "continue" — must mention the executor `[@Name](mention://agent/<agent-id>)`. The order is strict: (1) a comment with the specification AND the mention; (2) `multica issue status <id> todo`; (3) verify the run started: `multica agent tasks <agent-id> --output json` contains a task with that `issue_id` in `running`/`pending`/`queued`/`claimed`; it did not start — mention again, do not wait. Asking the owner for a decision does not replace mentioning the executor — two addressees, two comments.
 
-Инцидент: [G](incidents.md#inc-g) — решение владельца 2026-09-08.
+Incident: [G](incidents.md#inc-g) — owner decision 2026-09-08.
 
-### Упоминание = новый прогон; упоминать только когда прогон нужен `[ревью: PM @ комментарий]`
+### A mention = a new run; mention only when a run is needed `[review: PM @ comment]`
 <a id="mention-policy"></a>
 
-`mention://agent/<id>` создаёт платный прогон. Упоминать, когда нужен прогон (`#resume-by-mention`, новая подзадача агенту); ответ, благодарность, FYI, ссылка на чужой довод — без ссылки-упоминания. Частный случай: не упоминать только что закончившего агента в ответе — это запускает цикл агент-агент; молчание закрывает разговор. Та же формулировка — в рантайм-брифе слоя 0 («Mentions»).
+`mention://agent/<id>` creates a paid run. Mention when a run is needed (`#resume-by-mention`, a new sub-issue to an agent); a reply, thanks, FYI, a reference to someone else's argument — without a mention link. Special case: do not mention an agent that just finished in your reply — it starts an agent-to-agent loop; silence ends the conversation. The same wording is in the layer 0 runtime brief ("Mentions").
 
-Инцидент: нет
+Incident: none
 
-## Мерж, git, PR
+## Merge, git, PR
 
-### Один пишущий агент на дерево `[ревью: PM @ промоция стадии кода]`
+### One writing agent per tree `[review: PM @ code stage promotion]`
 <a id="one-writer"></a>
 
-Отдельный worktree на каждого исполнителя, ветка от свежего `origin/main`. Параллельные писатели в одном дереве дают ложную красноту гейтов и правки в файлах, которых не касался. Вторая ветка — `git worktree` в каталог сессии, не `git switch` в общем дереве: переключение уводит чужой HEAD. Историю чужой ветки не переписывать.
+A separate worktree per executor, a branch off a fresh `origin/main`. Parallel writers in one tree produce false gate redness and edits in files they never touched. A second branch — `git worktree` into a session directory, not `git switch` in a shared tree: switching drags away someone else's HEAD. Do not rewrite someone else's branch history.
 
-Инцидент: [R](incidents.md#inc-r) — чуть не унесло чужую незакоммиченную миграцию.
+Incident: [R](incidents.md#inc-r) — someone else's uncommitted migration was almost carried away.
 
-### Влить и доложить `[ревью: PM @ барьер стадии кода]`
+### Merge and report `[review: PM @ code stage barrier]`
 <a id="merge-and-report"></a>
 
-PR с постановкой в теле; после зелёного гейта — squash. Комментарий в карточку пишется от факта прогона: коммит, номер PR, числа гейтов, что нашли круги ревью, чего машина не проверяет. «Должно работать» отчётом не является. Статусы трекера проекта после мержа — слой 3.
+A PR with the specification in the body; after the green gate — squash. The comment to the card is written from the fact of a run: the commit, the PR number, the gate numbers, what the review rounds found, what the machine does not check. "It should work" is not a report. The project tracker statuses after the merge — layer 3.
 
-Инцидент: нет
+Incident: none
 
-### Постановка едет в коммите `[ревью: PM @ барьер стадии кода]`
+### The specification rides in the commit `[review: PM @ code stage barrier]`
 <a id="spec-in-commit"></a>
 
-Постановка попадает в тот же коммит, что и код: иначе внешний ревьюер читает код без брифа. Перед приёмкой проверять `git ls-files`, а не верить слову исполнителя: правки документов в общем дереве после коммита в ветку теряются.
+The specification lands in the same commit as the code: otherwise an external reviewer reads the code without the brief. Before acceptance check `git ls-files`, do not trust the executor's word: document edits in a shared tree after the commit to the branch are lost.
 
-Инцидент: [X](incidents.md#inc-x).
+Incident: [X](incidents.md#inc-x).
 
-### Связь PR ↔ карточка — слаг в заголовке PR; карточка до заголовка `[ревью: PM @ барьер стадии кода]`
+### PR ↔ card link — the slug in the PR title; the card before the title `[review: PM @ code stage barrier]`
 <a id="pr-slug"></a>
 
-PR связан с задачей ровно одним способом: слаг карточки в ЗАГОЛОВКЕ PR. Заголовок становится subject squash-коммита и переживает мерж; тело PR при squash не сохраняется, трейлер в нём связи не даёт. Слаг заводится карточкой ДО заголовка PR: придуманный номер автонумерация трекера отдаст чужой работе; при создании задачи выдавать исполнителю реальный слаг.
+A PR is linked to a task in exactly one way: the card slug in the PR TITLE. The title becomes the subject of the squash commit and survives the merge; the PR body is not preserved at squash, a trailer in it gives no link. The slug is created by the card BEFORE the PR title: an invented number the tracker's auto-numbering will hand to someone else's work; when creating the task, give the executor the real slug.
 
-Инцидент: [U](incidents.md#inc-u), [V](incidents.md#inc-v).
+Incident: [U](incidents.md#inc-u), [V](incidents.md#inc-v).
 
-### Комментарий в карточку — тем же действием, что доклад владельцу `[ревью: PM @ комментарий приёмки]`
+### The card comment — the same action as the owner report `[review: PM @ acceptance comment]`
 <a id="comment-with-report"></a>
 
-Иначе задача висит в `in_review` сутки после мержа.
+Otherwise the task hangs in `in_review` for a day after the merge.
 
-Инцидент: [W](incidents.md#inc-w).
+Incident: [W](incidents.md#inc-w).
 
-### Намерение живёт в git, состояние — в трекере `[ревью: PM @ создание карточки]`
+### Intent lives in git, state — in the tracker `[review: PM @ card creation]`
 <a id="intent-in-git"></a>
 
-Планы, ADR, чеклисты — файлами в репозитории: их читают исполнители без доступа к трекеру. Исключение — реестр находок круга: его носитель — отдельная карточка-реестр в трекере, потому что реестр должен перезаписываться, а его id лежит в метаданных родителя (`findings_registry_issue`, `review-cycle.md#registry`). Статус, исполнитель, порядок — только в трекере: этот класс фактов гниёт в файлах, и по устаревшим файлам уже дважды планировалась несуществующая работа. Источник — `AGENTS.md` проекта-источника, «Intent lives in git» (карточка старого трекера не резолвится).
+Plans, ADRs, checklists — as files in the repository: executors without tracker access read them. The exception — the round's findings registry: its carrier is a separate registry card in the tracker, because the registry must be overwritten and its id sits in the parent metadata (`findings_registry_issue`, `review-cycle.md#registry`). Status, executor, order — only in the tracker: this class of facts rots in files, and stale files have already caused nonexistent work to be planned twice. Source — the source project's `AGENTS.md`, "Intent lives in git" (the old tracker card does not resolve).
 
-Инцидент: нет
+Incident: none
 
-## Метаданные родителя
+## Parent metadata
 
-### Ключи метаданных родителя `[ревью: PM @ барьер стадии]`
+### Parent metadata keys `[review: PM @ stage barrier]`
 <a id="metadata-keys"></a>
 
-PM просыпается на барьере без памяти о прошлых кругах: метаданные родителя читаются первым делом и пишутся последним. Ключи: `impact_class` — класс влияния (`impact-class.md#classify-first`); `review_rounds_spec` — число закрытых кругов ревью постановки (`Stage: arch` считается кругом постановки); `review_rounds_code` — то же для кода; `last_round_findings` — сколько подтверждённых находок дал последний круг; `converging` — `true`, если число находок падает от круга к кругу; `findings_registry_issue` — id карточки-реестра; `owner_decision` — id комментария с решением владельца; `repo` — репозиторий карточки. Без этих ключей предел кругов не из чего считать.
+The PM wakes at the barrier with no memory of past rounds: the parent metadata is read first and written last. Keys: `impact_class` — the impact class (`impact-class.md#classify-first`); `review_rounds_spec` — the number of closed specification review rounds (`Stage: arch` counts as a specification round); `review_rounds_code` — the same for code; `last_round_findings` — how many confirmed findings the last round produced; `converging` — `true` if the number of findings falls from round to round; `findings_registry_issue` — the registry card id; `owner_decision` — the id of the comment with the owner decision; `repo` — the card's repository. Without these keys there is nothing to count the round limit from.
 
-Инцидент: нет
+Incident: none

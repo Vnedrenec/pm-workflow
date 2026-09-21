@@ -1,38 +1,38 @@
-# Класс влияния карточки и предел кругов
+# Card impact class and the round limit
 
-Слой 2 регламента воркспейса. Формат правила — `README.md`; адрес правила — `impact-class.md#<якорь>`. Источники текста: снимок инструкций PM на 18.09.2026 (в приватном архиве; раздел «Impact class and round limits», решение владельца 2026-09-12), файл проекта-источника `docs/engineering/pm-workflow.md` §2.9; таблица лимитов — постановка о выносе регламента §7.2 (в приватном архиве) и решения владельца В1–В2 от 18.09.2026 (`CHANGELOG.md`).
+Layer 2 of the workspace regulation. Rule format — `README.md`; rule address — `impact-class.md#<anchor>`. Sources of the text: the snapshot of the PM instructions as of 2026-09-18 (in the private archive; the section "Impact class and round limits", the owner decision of 2026-09-12), the source-project file `docs/engineering/pm-workflow.md` §2.9; the limits table — the regulation-extraction specification §7.2 (in the private archive) and the owner decisions V1–V2 of 2026-09-18 (`CHANGELOG.md`).
 
-### Класс ставится до промоции стадии 1 `[ревью: PM @ создание родителя]`
+### The class is set before the promotion of stage 1 `[review: PM @ parent creation]`
 <a id="classify-first"></a>
 
-Каждая карточка-родитель получает класс влияния при создании, до промоции первой стадии: `клиенты` / `деньги` / `доступность` / `гигиена`. Класс пишется первой строкой раздела «Конвейер» в описании карточки и в метаданные родителя ключом `impact_class`. Сомнение в классе — вопрос владельцу до промоции стадии 1, не после круга (`ownership.md#class-doubt`). Владелец: «ресурсов мало, решение по таким вопросам принимать раньше».
+Every parent card receives an impact class at creation, before the first stage's promotion: `customers` / `money` / `availability` / `hygiene`. The class is written as the first line of the "Pipeline" section in the card description and into the parent metadata under the key `impact_class`. Doubt about the class — a question to the owner before the promotion of stage 1, not after a round (`ownership.md#class-doubt`). Owner: "resources are scarce, decisions on such questions should come earlier".
 
-Инцидент: [I](incidents.md#inc-i) — шесть стадий и три круга постановки на карточке, не трогавшей ни клиентов, ни деньги, ни доступность.
+Incident: [I](incidents.md#inc-i) — six stages and three specification rounds on a card that touched neither customers, nor money, nor availability.
 
-### `гигиена` — по одному кругу, без цикла до сходимости `[ревью: PM @ барьер стадии аудита]`
+### `hygiene` — one round each, no cycle until convergence `[review: PM @ audit stage barrier]`
 <a id="hygiene"></a>
 
-Для класса `гигиена` (не влияет ни на клиентов, ни на деньги, ни на доступность): аудит постановки — ровно один круг; ревью кода — ровно один круг; подтверждённые находки единственного круга автор закрывает одной стадией доработки без повторного аудита; строки, оставшиеся открытыми после неё, PM помечает `accepted-risk` с реквизитом = решение владельца о классе (id комментария, поставившего `impact_class`) — отдельное решение по каждой строке не нужно; предохранитель трёх кругов не применяется — сходиться нечему.
+For the `hygiene` class (affects neither customers, nor money, nor availability): the specification audit — exactly one round; the code review — exactly one round; the confirmed findings of the single round the author closes with one rework stage without a repeat audit; rows still open after it the PM marks `accepted-risk` with the reference = the owner decision on the class (the id of the comment that set `impact_class`) — a separate decision per row is not needed; the three-round circuit breaker does not apply — there is nothing to converge.
 
-Инцидент: [I](incidents.md#inc-i) — решение владельца 2026-09-12.
+Incident: [I](incidents.md#inc-i) — owner decision 2026-09-12.
 
-### Таблица лимитов по классу `[ревью: PM @ барьер стадии аудита]`
+### Limits table per class `[review: PM @ audit stage barrier]`
 <a id="limits-table"></a>
 
-| Класс | Круги постановки (макс.) | Круги кода (макс.) | Обязательный `arch`-круг | Основание |
+| Class | Specification rounds (max) | Code rounds (max) | Mandatory `arch` round | Basis |
 |---|---|---|---|---|
-| `гигиена` | 1 | 1 | нет | владелец 2026-09-12 ([I](incidents.md#inc-i)) |
-| `клиенты` | до сходимости, предохранитель 3 | до сходимости, предохранитель 3 | нет | владелец 2026-08-13; подтверждено 2026-09-18 (В1) |
-| `доступность` | до сходимости, предохранитель 3 | то же | нет | владелец 2026-08-13; подтверждено 2026-09-18 (В1) |
-| `деньги` | до сходимости, предохранитель 3 | до сходимости, предохранитель 3 | нет (но см. `#money-arch-auditor`) | владелец 2026-09-18 (В2) |
+| `hygiene` | 1 | 1 | no | owner 2026-09-12 ([I](incidents.md#inc-i)) |
+| `customers` | until convergence, circuit breaker 3 | until convergence, circuit breaker 3 | no | owner 2026-08-13; confirmed 2026-09-18 (V1) |
+| `availability` | until convergence, circuit breaker 3 | the same | no | owner 2026-08-13; confirmed 2026-09-18 (V1) |
+| `money` | until convergence, circuit breaker 3 | until convergence, circuit breaker 3 | no (but see `#money-arch-auditor`) | owner 2026-09-18 (V2) |
 
-«До сходимости» — `review-cycle.md#closure`: круг с нулём подтверждённых при `Coverage: full` и пустом реестре закрывает цикл; один чистый круг достаточен. Предохранитель — `review-cycle.md#fuse`.
+"Until convergence" — `review-cycle.md#closure`: a round with zero confirmed at `Coverage: full` and an empty registry closes the cycle; one clean round is enough. The circuit breaker — `review-cycle.md#fuse`.
 
-Инцидент: нет
+Incident: none
 
-### `деньги`: в первом круге Reviewer обязан включить Architecture Auditor `[ревью: PM @ промоция стадии аудита]`
+### `money`: in the first round the Reviewer must include the Architecture Auditor `[review: PM @ audit stage promotion]`
 <a id="money-arch-auditor"></a>
 
-Для класса `деньги` в первом круге аудита (постановки и кода) Reviewer обязан включить в панель Architecture Auditor; его прогон даёт `Stage: arch` в строке счёта (`review-cycle.md#score-line`). Четвёртый круг и отдельный обязательный `arch`-круг не вводятся — предохранитель 3, как у `клиенты`. PM проверяет состав панели в конверте круга (`pipeline.md#audit-envelope`) до промоции.
+For the `money` class, in the first audit round (specification and code) the Reviewer must include the Architecture Auditor in the panel; its run produces `Stage: arch` in the score line (`review-cycle.md#score-line`). A fourth round and a separate mandatory `arch` round are not introduced — circuit breaker 3, same as `customers`. The PM checks the panel composition in the round envelope (`pipeline.md#audit-envelope`) before promotion.
 
-Инцидент: [N](incidents.md#inc-n) — решение владельца 2026-09-18 (В2), замера нет.
+Incident: [N](incidents.md#inc-n) — owner decision 2026-09-18 (V2), no measurement.

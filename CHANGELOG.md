@@ -1,6 +1,12 @@
-# CHANGELOG регламента
+# CHANGELOG of the regulation
 
-Одна запись = одно решение владельца или одна сверка. Формат: заголовок `## YYYY-MM-DD — <суть>`, четыре строки `Решение / Что изменилось / Инцидент / Затронуто` (держит `scripts/check-rules.sh`). Новые записи сверху. Изменение правила по существу без записи здесь не делается (`README.md`). Записи до 2026-09-10 — задним числом: комментария нет, источник — снимок инструкций PM в приватном архиве. Реквизит решения — дата и `D-N`; соответствие `D-N` карточке и комментарию — в приватном реестре воркспейса.
+One entry = one owner decision or one reconciliation. Format: a heading `## YYYY-MM-DD — <gist>`, four lines `Decision / What changed / Incident / Affected` (held by `scripts/check-rules.sh`). New entries on top. Entries before 2026-09-21 keep their original Russian field names; new entries use the English ones — the guard accepts exactly one of the two forms per entry. A rule change in substance is not made without an entry here (`README.md`). Entries up to 2026-09-10 are retroactive: there is no comment, the source is the snapshot of the PM instructions in the private archive. A decision reference is the date and `D-N`; the mapping of `D-N` to the card and comment is in the private workspace registry.
+
+## 2026-09-21 — content translated to English
+- Decision: owner, 2026-09-21 (D-10; card 448 comment — mapping in the private registry): the regulation is read in agent runs at every round, and Russian text costs roughly twice the English tokens; translate the repository content to English.
+- What changed: all content translated (docs/, skills/, templates/, script comments and guard messages, workflow display names); rule-index.tsv keys translated with targets and row order unchanged; guards re-aimed at the English strings (labels, incident lines, gotchas fields, CHANGELOG fields, required lines) — bilingual CHANGELOG check; impact-class values hygiene/money/customers/availability; stop-word dictionaries, score-line format and fixtures, CHANGELOG history, and the 2026-09-18 sanitization plan untouched; stop-word history scan: GitHub-generated test-merge commits exempt from the author check (false-positive fix from the specification PR, see the plan §5.6).
+- Incident: none.
+- Affected: the whole tree except scripts/stop-words.txt, scripts/stop-words-allow.txt, CHANGELOG history entries, docs/superpowers/plans/2026-09-18-sanitize-pm-workflow.md, scripts/fixtures/.
 
 ## 2026-09-18 — обезличивание перед публикацией
 - Решение: владелец, 2026-09-18 (D-9; класс `гигиена`; ADR `docs/adr/0002-public-repository-sanitization.md`).

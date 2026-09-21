@@ -1,221 +1,221 @@
 ---
 name: agent-runtime-gotchas
-description: Обходы рантайма, пойманные на живых прогонах, каждый с условием снятия. A — платформа Multica (упоминание = прогон, in_review не закрывает барьер, родитель в backlog, rerun после blocked, cancelled не гасит прогон, барьер по статусам, модель только из runtime usage, скилл без версий, перезапуск демона, 2>&1 при JSON, не убивать multica по имени). B — рантаймы и провайдеры (Antigravity и строка каталога, лимиты Grok/GLM/DeepSeek и часы пик, отказы Claude на брифе и маршрутизация, кеш npm, свежая зависимость в main, инфраструктурные падения серией). Регламент конвейера — не здесь, а в репозитории pm-workflow (docs/).
+description: Runtime workarounds caught on live runs, each with a removal condition. A — the Multica platform (a mention = a run, in_review does not close the barrier, the parent in backlog, rerun after blocked, cancelled does not stop the run, the barrier by statuses, the model only from runtime usage, a skill without versions, the daemon restart, 2>&1 with JSON, never kill multica by name). B — runtimes and providers (Antigravity and the catalog line, the Grok/GLM/DeepSeek limits and peak hours, the Claude refusals on a brief and routing, the npm cache, a fresh dependency in main, infrastructure failures in series). The pipeline regulation is not here but in the pm-workflow repository (docs/).
 ---
 
-Отказы рантаймов и платформы, пойманные на живых прогонах. Каждый пункт стоил прогона или круга. Здесь только обходы — то, что придётся убрать, когда платформа или провайдер изменится; у каждого пункта условие снятия. Регламент конвейера (роли, барьеры, строка счёта, реестр, пределы кругов) живёт в репозитории `pm-workflow`, `docs/`; PM получает его скиллом `pm-workflow`. Ты разбираешь ЧУЖОЙ прогон: собираешь круг, стоишь на барьере, принимаешь отчёты. Исполнителю внутри своего прогона — `audit-run-hygiene`.
+Runtime and platform failures caught on live runs. Every item cost a run or a round. Only workarounds live here — the things you will have to remove when the platform or a provider changes; every item has a removal condition. The pipeline regulation (roles, barriers, the score line, the registry, round limits) lives in the `pm-workflow` repository, `docs/`; the PM receives it as the `pm-workflow` skill. You are analyzing someone else's run: assembling a round, standing at a barrier, accepting reports. For an executor inside his own run — `audit-run-hygiene`.
 
-Источник этого файла — `pm-workflow/skills/agent-runtime-gotchas/SKILL.md`; править только PR туда, обновлять `multica skill refresh`. `multica skill update` для этого скилла запрещён (см. `skill-no-versions`).
+The source of this file is `pm-workflow/skills/agent-runtime-gotchas/SKILL.md`; edit only via a PR there, update with `multica skill refresh`. `multica skill update` is forbidden for this skill (see `skill-no-versions`).
 
-## A. Обходы платформы Multica
+## A. Multica platform workarounds
 
-### Смена статуса не поднимает прогон; поднимает только упоминание
+### A status change does not raise a run; only a mention does
 <a id="mention-is-run"></a>
 
-- Симптом: карточка переведена из `blocked`/`in_review` в `todo`, исполнитель не менялся — задача не создаётся, карточка стоит в рабочем статусе без работы; сторож зависших видит её как «молчит» с лагом до 85 минут.
-- Причина: смена статуса — запись, а не команда; прогон создаёт только упоминание `[@Имя](mention://agent/<agent-id>)` (и назначение нового исполнителя).
-- Обход: в комментарии, возобновляющем работу, упоминать исполнителя; затем статус `todo`; затем проверить `multica agent tasks <agent-id> --output json` — задача с этим `issue_id` в `running`/`pending`/`queued`/`claimed`; нет — упомянуть повторно. Обратная сторона: любое упоминание агента — платный прогон, ответ/благодарность/FYI — без ссылки. Регламент — `pm-workflow` `docs/pipeline.md#resume-by-mention`, `#mention-policy`.
-- Инцидент: G (см. `docs/incidents.md#inc-g` в репозитории `pm-workflow`).
-- Условие снятия: убрать, когда перевод карточки в `todo` начнёт создавать задачу исполнителя без упоминания; проверка — перевести заблокированную карточку класса `гигиена` в `todo` без упоминания и увидеть задачу в `multica agent tasks`.
+- Symptom: a card moved from `blocked`/`in_review` to `todo`, the executor unchanged — no task is created, the card sits in a working status without work; the stale watchdog sees it as "silent" with a lag of up to 85 minutes.
+- Cause: a status change is a record, not a command; only a mention `[@Name](mention://agent/<agent-id>)` creates a run (and assigning a new executor).
+- Workaround: in the comment that resumes work, mention the executor; then the `todo` status; then check `multica agent tasks <agent-id> --output json` — a task with that `issue_id` in `running`/`pending`/`queued`/`claimed`; if absent — mention again. The flip side: any mention of an agent is a paid run; a reply/thanks/FYI — without the link. Regulation — `pm-workflow` `docs/pipeline.md#resume-by-mention`, `#mention-policy`.
+- Incident: G (see `docs/incidents.md#inc-g` in the `pm-workflow` repository).
+- Removal condition: remove when moving a card to `todo` starts creating the executor's task without a mention; check — move a blocked `hygiene`-class card to `todo` without a mention and see the task in `multica agent tasks`.
 
-### `in_review` не закрывает барьер стадии
+### `in_review` does not close the stage barrier
 <a id="in-review-not-terminal"></a>
 
-- Симптом: барьер стадии не закрывается, PM не просыпается, подзадача стоит в `in_review`.
-- Причина: рантайм по умолчанию завершает прогон в `in_review`, а барьер срабатывает только по `done`/`cancelled` всех подзадач.
-- Обход: в теле каждой подзадачи строка «по завершении `multica issue status <id> done`, не оставлять `in_review`» (см. `done-line-in-body`). Регламент — `pm-workflow` `docs/pipeline.md#barrier-terminal`.
-- Инцидент: B (см. `docs/incidents.md#inc-b` в репозитории `pm-workflow`).
-- Условие снятия: убрать, когда Multica начнёт закрывать барьер по `in_review` либо даст настройку терминального статуса; проверка — подзадача, завершённая в `in_review`, будит родителя (проверять на карточке класса `гигиена`).
+- Symptom: the stage barrier does not close, the PM is not woken, the sub-issue sits in `in_review`.
+- Cause: the runtime by default ends a run at `in_review`, and the barrier triggers only on `done`/`cancelled` of all sub-issues.
+- Workaround: in the body of every sub-issue the line "on completion `multica issue status <id> done`, do not leave it `in_review`" (see `done-line-in-body`). Regulation — `pm-workflow` `docs/pipeline.md#barrier-terminal`.
+- Incident: B (see `docs/incidents.md#inc-b` in the `pm-workflow` repository).
+- Removal condition: remove when Multica starts closing the barrier on `in_review` or offers a terminal-status setting; check — a sub-issue completed in `in_review` wakes the parent (test on a `hygiene`-class card).
 
-### Родитель, созданный не в `backlog`, запускает второй прогон PM
+### A parent created not in `backlog` starts a second PM run
 <a id="parent-backlog-first"></a>
 
-- Симптом: две одинаковые первые стадии от двух прогонов PM, обе отработали впустую.
-- Причина: карточка, назначенная на агента в статусе, отличном от `backlog`, стартует прогон немедленно — до того, как созданы подзадачи; второй прогон о них не знает и строит свои.
-- Обход: родитель — `--status backlog`; подзадачи (первая `todo`, остальные `backlog`); метаданные; только потом `in_progress`. Подъём из `backlog` будит PM ещё раз — нормально. Регламент — `pm-workflow` `docs/pipeline.md#start-order`.
-- Инцидент: B (см. `docs/incidents.md#inc-b` в репозитории `pm-workflow`).
-- Условие снятия: убрать, когда создание карточки с исполнителем перестанет запускать прогон до явного старта (например, появится `--no-start` у `issue create`, проверенный на родителе с PM); проверка — создать родителя в `in_progress` и увидеть один прогон, а не два.
+- Symptom: two identical first stages from two PM runs, both worked for nothing.
+- Cause: a card assigned to an agent in a status other than `backlog` starts a run immediately — before the sub-issues are created; the second run knows nothing about them and builds its own.
+- Workaround: the parent — `--status backlog`; the sub-issues (the first `todo`, the rest `backlog`); the metadata; only then `in_progress`. Raising from `backlog` wakes the PM once more — normal. Regulation — `pm-workflow` `docs/pipeline.md#start-order`.
+- Incident: B (see `docs/incidents.md#inc-b` in the `pm-workflow` repository).
+- Removal condition: remove when creating a card with an executor stops starting a run before an explicit start (for example, a `--no-start` appears on `issue create`, tested on a parent with the PM); check — create the parent in `in_progress` and see one run, not two.
 
-### Строка «→ done» в теле подзадачи
+### The "→ done" line in the sub-issue body
 <a id="done-line-in-body"></a>
 
-- Симптом: подзадача без строки о `done` закрывается исполнителем в `in_review` — барьер стоит (следствие `in-review-not-terminal`, отдельный пункт ради `grep`).
-- Причина: явная инструкция в теле перекрывает умолчание рантайма; без неё исполнитель следует рантайм-брифу и останавливается на `in_review`.
-- Обход: без строки «по завершении перевести в `done`: `multica issue status <id> done`; НЕ оставлять `in_review`» подзадача не создаётся; строка — в блоке «Завершение» шаблона `templates/subtask.md` репозитория `pm-workflow`, держит `scripts/check-rules.sh`.
-- Инцидент: B (см. `docs/incidents.md#inc-b` в репозитории `pm-workflow`).
-- Условие снятия: убрать вместе с `in-review-not-terminal`.
+- Symptom: a sub-issue without the `done` line is closed by the executor in `in_review` — the barrier stands (a consequence of `in-review-not-terminal`, a separate item for the sake of `grep`).
+- Cause: an explicit instruction in the body overrides the runtime default; without it the executor follows the runtime brief and stops at `in_review`.
+- Workaround: without the line "on completion set it to `done`: `multica issue status <id> done`; do NOT leave it `in_review`" a sub-issue is not created; the line is in the "Completion" block of the `templates/subtask.md` template of the `pm-workflow` repository, held by `scripts/check-rules.sh`.
+- Incident: B (see `docs/incidents.md#inc-b` in the `pm-workflow` repository).
+- Removal condition: remove together with `in-review-not-terminal`.
 
-### `done` терминален и событий не порождает
+### `done` is terminal and emits no events
 <a id="done-is-silent"></a>
 
-- Симптом: владелец перевёл родителя `in_review → done`, следующая карточка не стартовала; конвейер простоял до ручного вопроса.
-- Причина: `done` — терминальный статус, на него никто не подписан.
-- Обход: следующую карточку поднимать при уходе текущей в `in_review`, не ждать `done`; в комментарии приёмки называть, что уже запущено следом. Регламент — `pm-workflow` `docs/pipeline.md#next-card-on-in-review`.
-- Инцидент: L (см. `docs/incidents.md#inc-l` в репозитории `pm-workflow`).
-- Условие снятия: убрать, когда Multica начнёт будить PM или следующую карточку на `done` родителя; проверка — родитель класса `гигиена` с карточкой-продолжением в `backlog`, `done` владельцем поднимает её.
+- Symptom: the owner moved the parent `in_review → done`, the next card did not start; the pipeline idled until a manual question.
+- Cause: `done` is a terminal status, nobody is subscribed to it.
+- Workaround: raise the next card when the current one goes to `in_review`, do not wait for `done`; in the acceptance comment name what has already been started to follow. Regulation — `pm-workflow` `docs/pipeline.md#next-card-on-in-review`.
+- Incident: L (see `docs/incidents.md#inc-l` in the `pm-workflow` repository).
+- Removal condition: remove when Multica starts waking the PM or the next card on a parent's `done`; check — a `hygiene`-class parent with a continuation card in `backlog`, a `done` by the owner raises it.
 
-### После `blocked` ни `todo`, ни `backlog → todo` не создают задачу
+### After `blocked` neither `todo` nor `backlog → todo` creates a task
 <a id="rerun-after-promote"></a>
 
-- Симптом: карточка после `blocked` переведена в `todo` и через `backlog → todo` — задача не создалась, стадия висит мёртвой при живом рантайме.
-- Причина: смена статуса не создаёт задачу текущего назначения (см. `mention-is-run`).
-- Обход: `multica issue rerun <issue-id>` — создаёт и сразу запускает задачу текущего назначения. Факт проверять по `multica agent tasks <agent-id>`: нет задачи новее промоута — прогона нет, как бы ни выглядел статус.
-- Инцидент: F (см. `docs/incidents.md#inc-f` в репозитории `pm-workflow`), 2026-09-03.
-- Условие снятия: убрать вместе с `mention-is-run`.
+- Symptom: a card after `blocked` was moved to `todo` directly and via `backlog → todo` — no task was created, the stage hangs dead while the runtime is alive.
+- Cause: a status change does not create a task for the current assignment (see `mention-is-run`).
+- Workaround: `multica issue rerun <issue-id>` — creates and immediately starts a task for the current assignment. Verify the fact via `multica agent tasks <agent-id>`: no task newer than the promotion — no run, no matter how the status looks.
+- Incident: F (see `docs/incidents.md#inc-f` in the `pm-workflow` repository), 2026-09-03.
+- Removal condition: remove together with `mention-is-run`.
 
-### `cancelled` и снятие исполнителя не гасят прогон
+### `cancelled` and unassigning the executor do not stop the run
 <a id="cancel-does-not-stop"></a>
 
-- Симптом: карточка в `cancelled`, исполнитель снят, прогон продолжает работать и тратить деньги; в CLI команды остановки нет.
-- Причина: статус и назначение — записи; остановка запущенной задачи есть только в интерфейсе.
-- Обход: запущенный прогон останавливать только в UI; дешевле не запускать — лишний прогон стоит столько же, сколько нужный.
-- Инцидент: K (см. `docs/incidents.md#inc-k` в репозитории `pm-workflow`).
-- Условие снятия: убрать, когда в CLI появится остановка задачи (`multica agent tasks stop <id>` или `cancelled` начнёт гасить прогон); проверка — `cancelled` на карточке с работающим прогоном переводит задачу в `cancelled` в `multica agent tasks`.
+- Symptom: the card is `cancelled`, the executor unassigned, the run keeps working and spending money; there is no stop command in the CLI.
+- Cause: status and assignment are records; stopping a started task exists only in the interface.
+- Workaround: stop a started run only in the UI; cheaper not to start — a wasted run costs as much as a needed one.
+- Incident: K (see `docs/incidents.md#inc-k` in the `pm-workflow` repository).
+- Removal condition: remove when the CLI gets a task stop (`multica agent tasks stop <id>` or `cancelled` starts stopping the run); check — `cancelled` on a card with a working run moves the task to `cancelled` in `multica agent tasks`.
 
-### Барьер срабатывает по статусам, а не по наличию отчёта
+### The barrier triggers on statuses, not on the presence of a report
 <a id="barrier-by-status"></a>
 
-- Симптом: стадия закрыта, у аудиторских подзадач отчёты есть, у стадии Reviewer — только «панель разослана»: ни строки счёта, ни реестра, ни личного воспроизведения. Прогон Reviewer умер отдельно от панели (`idle_watchdog`, затем `API Error: 529 Overloaded` три раза подряд).
-- Причина: барьер закрывается терминальными статусами подзадач; содержимое отчёта платформа не проверяет.
-- Обход: на барьере читать отчёт, а не статус; при мёртвом Reviewer — отдельная стадия только на синтез. Процедура — `pm-workflow` `docs/pipeline.md#synthesis-stage`.
-- Инцидент: E (см. `docs/incidents.md#inc-e` в репозитории `pm-workflow`), воспроизведено дважды.
-- Условие снятия: убрать, когда барьер сможет требовать отчёт (например, обязательный комментарий-результат при `done`); проверка — `done` без комментария не закрывает барьер.
+- Symptom: the stage is closed, the auditor sub-issues have reports, the Reviewer stage has only "the panel has been sent out": no score line, no registry, no personal reproduction. The Reviewer run died separately from the panel (`idle_watchdog`, then `API Error: 529 Overloaded` three times in a row).
+- Cause: the barrier closes on the terminal statuses of the sub-issues; the platform does not check the report content.
+- Workaround: at the barrier read the report, not the status; with a dead Reviewer — a separate stage for synthesis only. The procedure — `pm-workflow` `docs/pipeline.md#synthesis-stage`.
+- Incident: E (see `docs/incidents.md#inc-e` in the `pm-workflow` repository), reproduced twice.
+- Removal condition: remove when the barrier can demand a report (for example, a mandatory result comment at `done`); check — a `done` without a comment does not close the barrier.
 
-### Модель прогона не хранится в задаче и не определима изнутри
+### The run model is not stored in the task and is undeterminable from inside
 <a id="model-not-in-task"></a>
 
-- Симптом: три аудитора на `gpt-5.6-sol`, `-luna`, `-terra` дали два одинаковых самоотчёта «GPT-5 (Codex)» и одно случайное совпадение с дефолтом `~/.codex/config.toml`. `gpt-5.6-luna` в учёте не появился вовсе при отработавшей подзадаче (1 мин 51 с против обычных 26–36 мин) — переопределение не доехало.
-- Причина: харнесс подставляет продуктовую личность в системный промпт; записи задач (`multica agent tasks`) модель не хранят, в argv её нет (codex говорит через app-server).
-- Обход: только `multica runtime usage <runtime-id> --days 1 --output json` — строка на модель. Antigravity расход не отчитывает вообще. В обоих случаях строку scorecard помечать недостоверной по модели. Регламент — `pm-workflow` `docs/review-cycle.md#model-from-usage`.
-- Инцидент: C (см. `docs/incidents.md#inc-c` в репозитории `pm-workflow`).
-- Условие снятия: убрать, когда `multica agent tasks` начнёт хранить фактическую модель прогона; проверка — поле модели в задаче совпадает со строкой `runtime usage`.
+- Symptom: three auditors on `gpt-5.6-sol`, `-luna`, `-terra` gave two identical self-reports "GPT-5 (Codex)" and one accidental match with the default of `~/.codex/config.toml`. `gpt-5.6-luna` never appeared in the accounting at all with a completed sub-issue (1 min 51 s against the usual 26–36 min) — the override did not land.
+- Cause: the harness substitutes a product persona into the system prompt; task records (`multica agent tasks`) do not store the model, it is not in argv (codex speaks through the app-server).
+- Workaround: only `multica runtime usage <runtime-id> --days 1 --output json` — one row per model. Antigravity does not report the spend at all. In both cases mark the scorecard row unreliable as to model. Regulation — `pm-workflow` `docs/review-cycle.md#model-from-usage`.
+- Incident: C (see `docs/incidents.md#inc-c` in the `pm-workflow` repository).
+- Removal condition: remove when `multica agent tasks` starts storing the actual model of the run; check — the model field in the task matches the `runtime usage` row.
 
-### `multica skill update` перезаписывает без версий и отката
+### `multica skill update` overwrites without versions or rollback
 <a id="skill-no-versions"></a>
 
-- Симптом: прогон дописал один факт, взяв базу из устаревшей копии, — перекомпоновка накануне исчезла (1073 code points, два блока, два слияния разделов); заметили через сутки ручной сверкой.
-- Причина: у скиллов нет версий; `update` перезаписывает `content` целиком; у скилла без `config.origin` `refresh` возвращает 422.
-- Обход: скиллы из `pm-workflow/skills/` правятся только PR в репозиторий и `multica skill refresh <id>`; `multica skill update` для них запрещён. Для остальных скиллов — забирать `content` через `multica skill get <id> --output json` НЕПОСРЕДСТВЕННО перед `update`, править этот текст, его же и писать; приёмку вешать на маркер, которого в старой редакции нет вовсе.
-- Инцидент: D (см. `docs/incidents.md#inc-d` в репозитории `pm-workflow`), 2026-08-17 — первичной карточки нет.
-- Условие снятия: убрать, когда у скиллов появятся версии и откат (`multica skill history`/`rollback`); проверка — откат затёртой правки командой.
+- Symptom: a run appended one fact, taking the base from a stale copy — a recomposition from the day before disappeared (1073 code points, two blocks, two section merges); noticed a day later by a manual reconciliation.
+- Cause: skills have no versions; `update` overwrites the `content` in full; for a skill without `config.origin` a `refresh` returns 422.
+- Workaround: the skills from `pm-workflow/skills/` are edited only via a PR to the repository and `multica skill refresh <id>`; `multica skill update` is forbidden for them. For the other skills — fetch the `content` via `multica skill get <id> --output json` IMMEDIATELY before the `update`, edit that text, and write back exactly it; hang the acceptance on a marker that is entirely absent from the old edition.
+- Incident: D (see `docs/incidents.md#inc-d` in the `pm-workflow` repository), 2026-08-17 — no primary card.
+- Removal condition: remove when skills get versions and rollback (`multica skill history`/`rollback`); check — roll back a wiped edit with a command.
 
-### `daemon restarted while task was in flight` — платформа перезапускает сама
+### `daemon restarted while task was in flight` — the platform restarts on its own
 <a id="daemon-restart-retry"></a>
 
-- Симптом: задача висит в `todo`, в `failure_reason` — `daemon restarted while task was in flight`.
-- Причина: перезапуск демона воркспейса; платформа заводит повторную задачу сама (до трёх попыток).
-- Обход: ничего не делать; не результат агента, в scorecard не идёт. Серия падений в одну минуту у разных агентов — инфраструктура (см. раздел B).
-- Инцидент: нет — замер 2026-08-16 (первичной карточки нет).
-- Условие снятия: убрать, когда перезапуск демона перестанет ронять задачи в полёте; проверка — `multica daemon status` после перезапуска показывает те же задачи `running`.
+- Symptom: the task hangs in `todo`, `failure_reason` says `daemon restarted while task was in flight`.
+- Cause: a restart of the workspace daemon; the platform creates a retry task by itself (up to three attempts).
+- Workaround: do nothing; it is not the agent's result and does not go into the scorecard. A series of failures within one minute across different agents — infrastructure (see section B).
+- Incident: none — a measurement of 2026-08-16 (no primary card).
+- Removal condition: remove when a daemon restart stops dropping tasks in flight; check — `multica daemon status` after the restart shows the same tasks `running`.
 
-### `2>&1` при разборе `--output json` делает успешную запись похожей на отказ
+### `2>&1` when parsing `--output json` makes a successful write look like a failure
 <a id="json-no-stderr-merge"></a>
 
-- Симптом: команда записи вернула JSON в stdout и предупреждение в stderr; после `2>&1` парсер падает, прогон повторяет запись — дубль.
-- Причина: `--output json` пишет JSON в stdout, подтверждения и предупреждения — в stderr.
-- Обход: не сливать потоки при разборе JSON. Дубль слоя 0: то же в рантайм-брифе («Available Commands»).
-- Инцидент: нет — дубль слоя 0.
-- Условие снятия: снять при изменении рантайм-брифа (когда бриф перестанет содержать это правило или CLI начнёт писать всё в stdout).
+- Symptom: a write command returned JSON in stdout and a warning in stderr; after `2>&1` the parser falls over, the run repeats the write — a duplicate.
+- Cause: `--output json` writes JSON to stdout, confirmations and warnings go to stderr.
+- Workaround: do not merge the streams when parsing JSON. A layer 0 duplicate: the same in the runtime brief ("Available Commands").
+- Incident: none — a layer 0 duplicate.
+- Removal condition: lift when the runtime brief changes (when the brief stops containing this rule or the CLI starts writing everything to stdout).
 
-### Долгоживущий процесс `multica` — демон воркспейса
+### A long-lived `multica` process is the workspace daemon
 <a id="never-kill-multica-by-name"></a>
 
-- Симптом: `pkill multica` ради своего зависшего дочернего процесса убил демон воркспейса — все прогоны машины упали.
-- Причина: демон и CLI — один исполняемый файл.
-- Обход: гасить только точный дочерний PID, сверив его с `multica daemon status --output json`. Дубль слоя 0: то же в рантайм-брифе («Background Task Safety»).
-- Инцидент: нет — дубль слоя 0.
-- Условие снятия: снять при изменении рантайм-брифа.
+- Symptom: `pkill multica` to kill one's own hung child process killed the workspace daemon — every run on the machine fell.
+- Cause: the daemon and the CLI are one executable.
+- Workaround: stop only the exact child PID, after comparing it with `multica daemon status --output json`. A layer 0 duplicate: the same in the runtime brief ("Background Task Safety").
+- Incident: none — a layer 0 duplicate.
+- Removal condition: lift when the runtime brief changes.
 
-## B. Рантаймы и провайдеры
+## B. Runtimes and providers
 
-Условие снятия каждого пункта — перепроверить не позже названной даты; нет подтверждения — удалить.
+The removal condition of every item is: re-verify no later than the named date; no confirmation — delete.
 
-### Разбор сорванного прогона
+### Failed-run analysis
 
-Статусу подзадачи не верить, сверять два источника:
+Do not trust the sub-issue status, reconcile two sources:
 
 ```
-multica agent tasks <agent-id> --output json    # failed + причина
-multica agent list --output json                # статус агента
+multica agent tasks <agent-id> --output json    # failed + the reason
+multica agent list --output json                # the agent status
 ```
 
-Вердикт: мёртвый прогон / инфраструктура / настоящий ноль. Мёртвый никогда не засчитывать за «не нашёл» (регламент — `pm-workflow` `docs/review-cycle.md#dead-run-zero`).
+Verdict: a dead run / infrastructure / a genuine zero. Never count a dead one as "found nothing" (regulation — `pm-workflow` `docs/review-cycle.md#dead-run-zero`).
 
-- Подзадача `in_progress` при `idle` агенте — упавший прогон.
-- Пустой ответ при `status=ok` — тоже мёртвый прогон.
-- Условие снятия: перепроверить не позже 2026-12-17.
+- A sub-issue `in_progress` with an `idle` agent — a failed run.
+- An empty answer at `status=ok` is also a dead run.
+- Removal condition: re-verify no later than 2026-12-17.
 
-### Antigravity: демон не разрезает строку каталога
+### Antigravity: the daemon does not cut the catalog line
 
-`agy models` печатает `id<TAB>Имя`; демон сравнивает и подставляет в `--model` всю строку:
+`agy models` prints `id<TAB>Name`; the daemon compares and passes the whole line into `--model`:
 
 ```
 agy exited with error: invalid model selection (--model "gemini-3.7-flash-medium\tGemini 3.7 Flash (Medium)")
 ```
 
-Обход: очистить `model` у агента, передать `--custom-args '["--model","gemini-3.1-pro-high"]'`. Проверено.
+Workaround: clear `model` on the agent, pass `--custom-args '["--model","gemini-3.1-pro-high"]'`. Verified.
 
-`agy -p --model <несуществующая>` не падает — молча уходит на дефолт. Успешный прогон не доказывает, что отработала заданная модель.
+`agy -p --model <nonexistent>` does not fall over — it silently falls back to the default. A successful run does not prove that the requested model did the work.
 
-- Условие снятия: перепроверить не позже 2026-12-17 (баг каталога Antigravity; после починки демона — удалить).
+- Removal condition: re-verify no later than 2026-12-17 (an Antigravity catalog defect; after the daemon is fixed — delete).
 
-### Лимиты и часы пик
+### Limits and peak hours
 
-- **Grok**: бесплатный лимит `grok-4.6` — 500 000 токенов/сутки, аудит крупного диффа ~525 000: не тянет и одного круга. CLI авторизован через OIDC; порядок разрешения `api_key` → `env_key` → сессия → `XAI_API_KEY`, то есть переменная ПОСЛЕ сессии. Чтобы ключ выигрывал — `~/.grok/config.toml`: `[models."grok-4.6"] env_key = "XAI_API_KEY"`.
-- **GLM (Z.AI)**: пик Пн–Пт 06:00–10:00 UTC. Окно про ЦЕНУ: вне пика 50% ставки. Неоплаченный план → `Insufficient balance or no resource package`; после оплаты активация несколько минут, упавшая до неё задача сама не перезапускается — гнать через `multica issue rerun` (см. `rerun-after-promote`).
-- **DeepSeek**: пик 01:00–04:00 и 06:00–10:00 UTC, вне пика вдвое дешевле.
-- **06:00–10:00 UTC пик сразу у DeepSeek и GLM** — круг в это окно не собирать.
-- Условие снятия: перепроверить не позже 2026-12-17 (лимиты и окна провайдеров меняются без объявления).
+- **Grok**: the free limit of `grok-4.6` is 500,000 tokens/day, an audit of a large diff is ~525,000: it cannot pull even one round. The CLI is authorized via OIDC; the resolution order is `api_key` → `env_key` → session → `XAI_API_KEY`, that is, the variable AFTER the session. For the key to win — `~/.grok/config.toml`: `[models."grok-4.6"] env_key = "XAI_API_KEY"`.
+- **GLM (Z.AI)**: peak Mon–Fri 06:00–10:00 UTC. The window is about PRICE: off-peak the rate is 50%. An unpaid plan → `Insufficient balance or no resource package`; after payment activation takes a few minutes, a task that failed before it does not restart by itself — push it through `multica issue rerun` (see `rerun-after-promote`).
+- **DeepSeek**: peak 01:00–04:00 and 06:00–10:00 UTC, off-peak is twice as cheap.
+- **06:00–10:00 UTC is the peak for both DeepSeek and GLM** — do not assemble a round in this window.
+- Removal condition: re-verify no later than 2026-12-17 (provider limits and windows change without notice).
 
-### Отказы Claude на брифе (safeguards) и маршрутизация
+### Claude refusals on a brief (safeguards) and routing
 
-Claude падает на брифе, который читается как просьба обойти защиту, — даже если защита своя. Отказ приходит ДО работы модели, переписывание помогает ненадёжно. Три прогона подряд, разные задачи:
+Claude fails on a brief that reads as a request to bypass a safeguard — even if the safeguard is one's own. The refusal arrives BEFORE the model works, rewording helps unreliably. Three runs in a row, different tasks:
 
 ```
 Claude (Fable) → API Error: safeguards flagged this message (anthropic.com/legal/aup)
 ```
 
-Триггеры: «обойти сторож», «найти путь наружу», «проверить, что обход ломает сборку», «пройти мимо проверки».
+Triggers: "get around the guard", "find a way out", "check that the workaround breaks the build", "slip past the check".
 
-Защитная рамка («защитный аудит своего приватного репо, всё локально на фикстурах») сработала на одном прогоне и не сработала на трёх следующих — класть в бриф, но не рассчитывать.
+A protective framing ("a defensive audit of one's own private repo, everything local on fixtures") worked on one run and failed on the next three — put it in the brief but do not rely on it.
 
-Не отказывали на тех же вопросах: **GLM** (`glm-5.3`) — 10 подтверждённых находок и 14 обходов сборочного сторожа, **DeepSeek Pro**, **Luna**.
+Did not refuse on the same questions: **GLM** (`glm-5.3`) — 10 confirmed findings and 14 build-guard workarounds, **DeepSeek Pro**, **Luna**.
 
-Маршрутизация: демонстрация нарушения → GLM или DeepSeek Pro; расхождение с замыслом и полнота модели → Fable. Формулировать «полнота покрытия», не «обход сторожей».
+Routing: demonstrating a violation → GLM or DeepSeek Pro; divergence from intent and completeness → Fable. Word it "coverage completeness", not "get around the guards".
 
-- Условие снятия: перепроверить не позже 2026-12-17.
+- Removal condition: re-verify no later than 2026-12-17.
 
-### Параллельные прогоны дерутся за кеш npm
+### Parallel runs fight over the npm cache
 
-Одновременный `npm ci` в общий `~/.npm` роняет чужие прогоны: `EACCES ... rename ... _cacache`. В бриф каждого исполнителя: `npm ci --cache ./.npm-cache`.
+A simultaneous `npm ci` into the shared `~/.npm` brings down other runs: `EACCES ... rename ... _cacache`. Into every executor's brief: `npm ci --cache ./.npm-cache`.
 
-- Условие снятия: перепроверить не позже 2026-12-17.
+- Removal condition: re-verify no later than 2026-12-17.
 
-### Свежая зависимость в `main` — старые `node_modules` красят гейты мимо кода
+### A fresh dependency in `main` — stale `node_modules` redden the gates past the code
 
-После мержа чужого PR, добавившего зависимость, прогон на несвежем дереве падает ДО проверки чего-либо. Замер 24.08.2026: PR добавил `globals@17`, конфиг ESLint читает `globals[set]` — на старом дереве `TypeError: Cannot convert undefined or null to object`, и разом краснеют все четыре гейта (`boundary`, `lint`, оба прохода, и тесты).
+After a merge of someone else's PR that added a dependency, a run on a stale tree falls before checking anything. A measurement of 2026-08-24: a PR added `globals@17`, the ESLint config reads `globals[set]` — on the old tree `TypeError: Cannot convert undefined or null to object`, and all four gates go red at once (`boundary`, `lint`, both passes, and the tests).
 
-Выглядит как провал стадии, им не является. `npm ci` — и всё зелёное.
+It looks like a stage failure and is not one. `npm ci` — and everything is green.
 
-Правило: перед приёмкой чужой ветки `npm ci`, а не `npm install` поверх. Четыре красных гейта разом, из которых один — падение самого конфига линтера, читать как «дерево несвежее», а не «работа сломана».
+Rule: before accepting someone else's branch `npm ci`, not `npm install` on top. Four red gates at once, one of which is the linter config itself falling, read as "the tree is stale", not "the work is broken".
 
-- Условие снятия: перепроверить не позже 2026-12-17.
+- Removal condition: re-verify no later than 2026-12-17.
 
-### Инфраструктурные падения серией
+### Infrastructure failures in series
 
-16.08.2026 20:26 разом упали все аудиторы круга (`runtime_recovery`) при живом демоне с большим аптаймом — перезапускалось приложение вокруг него. Платформа делает до трёх попыток; на DeepSeek две сгорели впустую (`opencode stream ended on an empty step` → `provider_network`, затем `task cancelled by server`).
+On 2026-08-16 at 20:26 every auditor of the round fell at once (`runtime_recovery`) with the daemon alive and a large uptime — the application around it was restarting. The platform makes up to three attempts; on DeepSeek two burned for nothing (`opencode stream ended on an empty step` → `provider_network`, then `task cancelled by server`).
 
-Серия падений в одну минуту у разных агентов — инфраструктура, не брифы. Смотреть `failure_reason`, а не `error`. Не лечить брифами и не перезапускать круги руками — к владельцу (`pm-workflow` `docs/ownership.md#escalation`).
+A series of failures within one minute across different agents — infrastructure, not briefs. Look at `failure_reason`, not `error`. Do not cure with briefs and do not restart rounds by hand — to the owner (`pm-workflow` `docs/ownership.md#escalation`).
 
-- Условие снятия: перепроверить не позже 2026-12-17.
+- Removal condition: re-verify no later than 2026-12-17.
 
-## C. Что из скилла ушло в слой 2
+## C. What moved from this skill to layer 2
 
-В скилле остаётся одна строка-указатель на каждое правило; текст — в репозитории `pm-workflow`:
+One pointer line per rule remains in the skill; the text is in the `pm-workflow` repository:
 
-- Пара (агент, вопрос) не повторяется два круга подряд (решение владельца 18.08.2026) → `docs/review-cycle.md#panel`.
-- Два PR на один дефект — технический вердикт, не мерж обоих → `docs/ownership.md#two-prs`.
-- Стадия закрылась, панель отработала, отчёта нет — стадия синтеза → `docs/pipeline.md#synthesis-stage` (симптом — `barrier-by-status` выше).
-- Эскалация к владельцу (серия падений, непроверяемая модель, потеря содержимого скилла) → `docs/ownership.md#escalation`.
-- Модель из карточки может не доехать → `docs/review-cycle.md#model-from-usage` (обход — `model-not-in-task` выше).
-- «Мутация обязана бить в точный блок» (целиться по номеру строки нужного блока, не по имени константы; проверять `diff` после мутации) → скилл `test-guard-discipline`. Перенести при следующей свёртке: 2026-09-18 | pm-workflow, PR о выносе регламента | правило о точной мутации лежало в скилле обходов рантайма, где его не ищут | при следующей свёртке приватного реестра дописать в `test-guard-discipline`, отсюда убрать.
+- An (agent, question) pair does not repeat two rounds in a row (owner decision 2026-08-18) → `docs/review-cycle.md#panel`.
+- Two PRs for one defect — a technical verdict, not merging both → `docs/ownership.md#two-prs`.
+- The stage closed, the panel worked, no report — a synthesis stage → `docs/pipeline.md#synthesis-stage` (the symptom — `barrier-by-status` above).
+- Escalation to the owner (a series of failures, an unverifiable model, a lost skill content) → `docs/ownership.md#escalation`.
+- The model from the card may not land → `docs/review-cycle.md#model-from-usage` (the workaround — `model-not-in-task` above).
+- "A mutation must hit the exact block" (aim by the line number of the needed block, not by the constant name; check the `diff` after the mutation) → the `test-guard-discipline` skill. Move at the next consolidation: 2026-09-18 | pm-workflow, the regulation-extraction PR | the exact-mutation rule lived in the workarounds skill, where nobody looks for it | at the next consolidation of the private registry add it to `test-guard-discipline`, remove it from here.

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Собирает skills/pm-workflow/references/ из docs/, templates/ и scripts/ (постановка §6.6).
+# Assembles skills/pm-workflow/references/ from docs/, templates/ and scripts/ (specification §6.6).
 #
-#   bash scripts/build-skills.sh            # копирует, перезаписывая references/
-#   bash scripts/build-skills.sh --check    # только diff; код 1 при расхождении или лишнем файле
+#   bash scripts/build-skills.sh            # copies, overwriting references/
+#   bash scripts/build-skills.sh --check    # diff only; exit code 1 on a divergence or an extra file
 #
-# references/ руками не править: канон — docs/ и templates/. Список пар фиксирован здесь.
+# Never hand-edit references/: the canon is docs/ and templates/. The pair list is fixed here.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="$ROOT/skills/pm-workflow/references"
 
-# источник → имя в references/
+# source → name in references/
 PAIRS=(
   "docs/roles.md:roles.md"
   "docs/pipeline.md:pipeline.md"
@@ -39,7 +39,7 @@ if [[ "$mode" == "--check" ]]; then
       rc=1
     fi
   done
-  # лишние файлы в references/ — тоже расхождение
+  # extra files in references/ are a divergence too
   for f in "$DEST"/*; do
     [[ -e "$f" ]] || continue
     base="$(basename "$f")"

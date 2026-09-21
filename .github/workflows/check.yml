@@ -8,15 +8,15 @@ jobs:
     env:
       LC_ALL: C.UTF-8
       STOP_WORDS_PRIVATE: ${{ secrets.STOP_WORDS_PRIVATE }}
-      # заголовок PR и сообщения коммитов диапазона сторож проверяет только там, где история обязана быть чистой
-      # (переменная репозитория SANITIZED_HISTORY=1 — новый репозиторий); в архивном репозитории слаг в заголовке допустим
+      # the PR title and the commit messages of the range are checked by the guard only where the history
+      # must be clean (the repository variable SANITIZED_HISTORY=1 — the new repository); in the archive repository a slug in the title is allowed
       PR_TITLE: ${{ vars.SANITIZED_HISTORY == '1' && github.event.pull_request.title || '' }}
       PR_BASE_SHA: ${{ vars.SANITIZED_HISTORY == '1' && github.event.pull_request.base.sha || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: check-rules (внутри — build-skills.sh --check и сторож стоп-слов)
+      - name: check-rules (inside — build-skills.sh --check and the stop-word guard)
         run: bash scripts/check-rules.sh
       - name: stop-words in history
         if: vars.SANITIZED_HISTORY == '1'

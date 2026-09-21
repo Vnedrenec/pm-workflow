@@ -1,45 +1,45 @@
-# ADR 0001 — регламент воркспейса в трёх слоях, источник истины — репозиторий `pm-workflow`
+# ADR 0001 — the workspace regulation in three layers, the source of truth is the `pm-workflow` repository
 
-- Статус: предложено (стадия постановки о выносе регламента, 18.09.2026); принимается решением владельца при приёмке родителя.
-- Автор: Architect. Аудит: Reviewer (один круг, класс `гигиена`).
-- Постановка: в приватном архиве (исходная постановка о выносе регламента).
-- Решение владельца о старте: 2026-09-18, реквизит D-7 в приватном реестре.
+- Status: proposed (the specification stage of the regulation extraction, 2026-09-18); accepted by an owner decision at the acceptance of the parent.
+- Author: Architect. Audit: Reviewer (one round, the `hygiene` class).
+- Specification: in the private archive (the original regulation-extraction specification).
+- Owner decision to start: 2026-09-18, reference D-7 in the private registry.
 
-## Контекст
+## Context
 
-Регламент конвейера живёт в двух копиях — поле `instructions` агента PM (17 684 знака) и файл проекта-источника `docs/engineering/pm-workflow.md` (276 строк) — и в третьем месте вперемешку с обходами рантайма (скилл `agent-runtime-gotchas`). Копии уже противоречат друг другу (номера 2.7/2.8 значат разное; лимит кругов для непредохранённых классов различается на круг). Инциденты цитируются номерами карточек прежнего воркспейса, которые больше не резолвятся. У обходов нет условий снятия. Скилл нельзя обновить без риска затереть чужую правку (`config: {}` — `refresh` невозможен).
+The pipeline regulation lives in two copies — the `instructions` field of the PM agent (17,684 characters) and the source-project file `docs/engineering/pm-workflow.md` (276 lines) — and in a third place mixed with runtime workarounds (the `agent-runtime-gotchas` skill). The copies already contradict each other (the numbers 2.7/2.8 mean different things; the round limit for the unprotected classes differs by a round). Incidents are cited by card numbers of the former workspace, which no longer resolve. The workarounds have no removal conditions. The skill cannot be updated without the risk of wiping someone else's edit (`config: {}` — `refresh` impossible).
 
-## Решение
+## Decision
 
-Четыре слоя с зависимостями только сверху вниз:
+Four layers with dependencies only top-down:
 
-| Слой | Что | Где живёт | Кто правит | Как доставляется агентам |
+| Layer | What | Where it lives | Who edits it | How it is delivered to agents |
 |---|---|---|---|---|
-| 0 | платформа Multica: системные инструкции продукта, рантайм-бриф | продукт | никто из воркспейса | автоматически |
-| 1 | обходы рантайма с условием снятия | `pm-workflow/skills/agent-runtime-gotchas/SKILL.md` | PR в `pm-workflow` | `multica skill import --url … --on-conflict overwrite` один раз, дальше `multica skill refresh <id>`; привязка к агентам сохраняется |
-| 2 | регламент воркспейса: роли, конвейер, цикл ревью, классы влияния, владение, шаблоны, CHANGELOG | `pm-workflow/docs/`, `templates/`, `CHANGELOG.md` — канон; `skills/pm-workflow/references/` — собранная копия, тождество держит CI | PR в `pm-workflow`; изменение по существу — только с записью в `CHANGELOG.md` и решением владельца | PM — скилл `pm-workflow` (`import`/`refresh`, автопилот после мержа); аудиторы и билдеры — блоки шаблонов, вставленные в тело подзадачи; Architect — строка «читать» в теле; владелец — git |
-| 3 | проектное: трекер проекта, машина, выкладка, секреты, контракт required checks | репозиторий проекта (файл регламента проекта, напр. `docs/engineering/pm-workflow.md`, `AGENTS.md`) | PR в проект | как раньше |
+| 0 | the Multica platform: the product's system instructions, the runtime brief | the product | nobody in the workspace | automatically |
+| 1 | runtime workarounds with a removal condition | `pm-workflow/skills/agent-runtime-gotchas/SKILL.md` | PR to `pm-workflow` | `multica skill import --url … --on-conflict overwrite` once, then `multica skill refresh <id>`; the binding to agents is preserved |
+| 2 | the workspace regulation: roles, pipeline, review cycle, impact classes, ownership, templates, CHANGELOG | `pm-workflow/docs/`, `templates/`, `CHANGELOG.md` — canon; `skills/pm-workflow/references/` — assembled copy, identity held by CI | PR to `pm-workflow`; a change in substance — only with a `CHANGELOG.md` entry and an owner decision | PM — the `pm-workflow` skill (`import`/`refresh`, autopilot after merge); auditors and builders — template blocks pasted into the sub-issue body; Architect — the "read" line in the body; owner — git |
+| 3 | project-specific: project tracker, machine, deployment, secrets, required checks contract | the project repository (the project regulation file, e.g. `docs/engineering/pm-workflow.md`, `AGENTS.md`) | PR to the project | as before |
 
-Дополнительно: `docs/incidents.md` — резолвер инцидентов (якорь → первичная запись); у каждого правила метка держателя `[CI: check]` или `[ревью: <роль> @ <точка>]` и строка `Инцидент:`; правило без инцидента — кандидат на пересмотр (решение владельца 18.09.2026, `CHANGELOG.md`); удаляется только неиспользуемое правило, по согласованию с владельцем, записью в `CHANGELOG.md`.
+Additionally: `docs/incidents.md` — the incident resolver (anchor → primary record); every rule carries a holder label `[CI: check]` or `[review: <role> @ <point>]` and an `Incident:` line; a rule without an incident is a revision candidate (owner decision 2026-09-18, `CHANGELOG.md`); only an unused rule is removed, in agreement with the owner, with a `CHANGELOG.md` entry.
 
-## Рассмотренные альтернативы
+## Alternatives considered
 
-**А. Заметки воркспейса как канон, файл проекта-источника — копия.** Отвергнуто: у поля `instructions` нет истории правок и диффа; расхождение обнаруживается только ручной сверкой (так и случилось); внешние ревьюеры и владелец видят поле лишь через CLI. Критерий выбора — «правка оставляет след и проходит ревью» — не выполняется.
+**A. Workspace notes as canon, the source-project file a copy.** Rejected: the `instructions` field has no edit history and no diff; a divergence is found only by manual reconciliation (which is what happened); external reviewers and the owner see the field only through the CLI. The selection criterion — "an edit leaves a trace and passes review" — is not met.
 
-**Б. Указатель в заметках + `multica repo checkout` на каждом прогоне PM.** Без дубля вовсе. Отвергнуто уточнением PM (18.09.2026): файлы в git в контекст прогона сами не попадают, PM не делает checkout на каждом барьере — правило, которое требует действия до того, как его прочли, не работает.
+**B. An index in the notes + `multica repo checkout` on every PM run.** No duplicate at all. Rejected by the PM's clarification (2026-09-18): files in git do not get into the run context by themselves, and the PM does not do a checkout at every barrier — a rule that requires an action before it has been read does not work.
 
-**Б′ (принято). Скилл `pm-workflow` как канал доставки, `docs/` как канон.** Файлы скилла обязаны лежать внутри его каталога (импорт берёт `tree/<ref>/<путь>`), поэтому `skills/pm-workflow/references/` — копия `docs/` и `templates/`, собранная `scripts/build-skills.sh` и проверяемая `diff`-ом в CI. Это дубль, но машинно сверяемый: расхождение красное на PR, а не обнаруживается через неделю ручной сверкой. Канон остаётся в `docs/`, потому что регламент читают не только агенты с привязкой — владелец, аудитор постановки, внешние ревьюеры. Вариант «канон в `skills/…/references/`, `docs/` — указатели» отвергнут: он ставит владельца читать документ из каталога, чьё имя говорит «служебная копия».
+**B′ (accepted). The `pm-workflow` skill as the delivery channel, `docs/` as canon.** The files of a skill must live inside its directory (the import takes `tree/<ref>/<path>`), therefore `skills/pm-workflow/references/` is a copy of `docs/` and `templates/`, assembled by `scripts/build-skills.sh` and checked with a `diff` in CI. This is a duplicate, but one that is machine-checkable: a divergence goes red on the PR instead of being discovered a week later by manual reconciliation. The canon stays in `docs/`, because the regulation is read not only by bound agents — the owner, the specification auditor, external reviewers. The option "canon in `skills/…/references/`, `docs/` — pointers" was rejected: it makes the owner read the document from a directory whose name says "service copy".
 
-**В. Хранить регламент в проекте-источнике и ссылаться из других проектов.** Отвергнуто: регламент воркспейса не принадлежит проекту; второй проект получит ссылку на чужой репозиторий, а правка регламента будет проходить CI проекта (`gate`, ~20 минут) ради текста.
+**C. Keep the regulation in the source project and reference it from other projects.** Rejected: a workspace regulation does not belong to a project; a second project would get a link to someone else's repository, and a regulation edit would run the project's CI (`gate`, ~20 minutes) for the sake of text.
 
-**Г. Сквозная нумерация правил (2.1–2.9) сохранить.** Отвергнуто: номера уже значат разное в двух копиях; вставка правила сдвигает всё ниже. Адрес правила = `файл#якорь`. В проекте-источнике номера §2.4–2.9 сохраняются как заглушки-адреса, потому что 22 постановки уже ссылаются на них.
+**D. Keep the through numbering of rules (2.1–2.9).** Rejected: the numbers already mean different things in the two copies; inserting a rule shifts everything below. A rule address = `file#anchor`. In the source project the numbers §2.4–2.9 remain as address stubs, because 22 specifications already reference them.
 
-## Последствия
+## Consequences
 
-- Плюс: одна правка — один PR — один дифф; каждое правило адресуемо и проверяемо скриптом; обходы получают срок жизни; скилл обновляется `refresh`-ом без риска затереть.
-- Минус: собранная копия в `skills/pm-workflow/references/` — второй экземпляр текста (держится CI); синхронизация скилла после мержа — автопилот с вебхуком и ежедневным запасным триггером, то есть ещё одна движущаяся часть; инциденты прежнего воркспейса в резолвере — пересказ, а не первичка.
-- Радиус поражения: только PM зависит от скилла `pm-workflow`; остальные агенты получают правила через блоки шаблонов в телах подзадач и скилл `agent-runtime-gotchas`. Откат — снимок инструкций PM из приватного архива обратно в `instructions`, скилл `pm-workflow` отвязать от PM.
+- Plus: one edit — one PR — one diff; every rule is addressable and script-checkable; workarounds get a lifetime; the skill is updated with a `refresh` without the risk of a wipe.
+- Minus: the assembled copy in `skills/pm-workflow/references/` is a second instance of the text (held by CI); skill synchronization after merge is an autopilot with a webhook and a daily backup trigger, that is, one more moving part; the former workspace's incidents in the resolver are retellings, not primaries.
+- Blast radius: only the PM depends on the `pm-workflow` skill; the other agents receive the rules through template blocks in sub-issue bodies and the `agent-runtime-gotchas` skill. Rollback — the snapshot of the PM instructions from the private archive back into `instructions`, unbind the `pm-workflow` skill from the PM.
 
-## Что проверяет, что решение работает
+## What proves the decision works
 
-Через 30 дней после применения заметок: (1) `content_hash` скилла `pm-workflow` = sha256 `SKILL.md` в `main` (автопилот работает, правок в UI нет); (2) каждый круг ревью закрыт со строкой `Scorecard:`; (3) хотя бы один пункт слоя 1 снят или перепроверен по своему условию — иначе условия снятия декоративны; (4) в телах стадий аудита и кода — вставленные блоки шаблонов, ни один круг не потерян из-за отсутствия строки счёта.
+30 days after the notes were applied: (1) the `content_hash` of the `pm-workflow` skill = the sha256 of `SKILL.md` in `main` (the autopilot works, no UI edits); (2) every review round closed with a `Scorecard:` line; (3) at least one layer 1 item removed or re-verified per its own condition — otherwise the removal conditions are decorative; (4) the audit and code stage bodies contain the pasted template blocks, and no round was lost for the lack of a score line.

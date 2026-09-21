@@ -1,46 +1,46 @@
-<!-- Шаблон тела подзадачи. Блоки с пометкой «только для стадии кода/аудита» вставляются в тело той стадии ДОСЛОВНО (pipeline.md#body-from-template). Обязательные строки держит scripts/check-rules.sh по списку scripts/required-lines/subtask.txt. -->
+<!-- Sub-issue body template. Blocks marked "code stage / audit stage only" are pasted into that stage's body VERBATIM (pipeline.md#body-from-template). Required lines are held by scripts/check-rules.sh against the list scripts/required-lines/subtask.txt. -->
 
-## Конвейер
-Класс влияния: `<impact_class>` · Родитель: <KEY-N> · Стадия: <N> · Слаг для PR: `<KEY-N>`
+## Pipeline
+Impact class: `<impact_class>` · Parent: <KEY-N> · Stage: <N> · PR slug: `<KEY-N>`
 <!-- impact-class.md#classify-first -->
 
-## Цель
-<одна фраза>
+## Goal
+<one phrase>
 
-## Входы
-<репозитории с командами `multica repo checkout …`; файлы; id карточек, чьи находки переносятся ТЕКСТОМ ниже>
+## Inputs
+<repositories with `multica repo checkout …` commands; files; ids of cards whose findings are carried over AS TEXT below>
 
-## Что сделать
-<шаги>
+## What to do
+<steps>
 
-## Что НЕ делается
+## What is not done
 <…>
 
-## Что легко испортить              <!-- только для стадии кода; pipeline.md#code-stage-body -->
-<что и почему; правила прогона машины проекта — ссылка на файл проекта, напр. `docs/engineering/pm-workflow.md` §4 в репозитории проекта>
+## Easy to break              <!-- code stage only; pipeline.md#code-stage-body -->
+<what and why; the project machine's run rules — a link to the project file, e.g. `docs/engineering/pm-workflow.md` §4 in the project repository>
 
-## Результат и приёмка
-<что проверяет следующий барьер; для стадии кода — «зелёный `gh pr checks <pr>` по голове последнего коммита, вывод приложен»>
+## Result and acceptance
+<what the next barrier checks; for the code stage — "green `gh pr checks <pr>` on the head of the last commit, output attached">
 <!-- pipeline.md#code-barrier -->
 
-## Запасной исполнитель            <!-- только для стадии кода; pipeline.md#backup-executor -->
-<агент другого семейства>; признак переключения — `failure_reason` с квотой в `multica agent tasks`.
+## Backup executor            <!-- code stage only; pipeline.md#backup-executor -->
+<an agent of another model family>; the switch sign — `failure_reason` with a quota in `multica agent tasks`.
 
-## Отчёт                            <!-- только для стадии кода; pipeline.md#builder-report -->
-Подагентов не заводить; дифф другим моделям не рассылать. Первая строка отчёта: `Подагенты: не заводились`.
+## Report                            <!-- code stage only; pipeline.md#builder-report -->
+Do not start subagents; do not send the diff to other models. First line of the report: `Subagents: none started`.
 <!-- pipeline.md#no-subagents -->
-Мутации проверять прогоном, не предсказанием: каждый кейс — команда и вывод.
+Verify mutations by running, not by prediction: each case — command and output.
 <!-- pipeline.md#mutation-by-run -->
-Пять разделов, каждый непустой; без любого из них стадия барьер не проходит:
-1. Гейты: команда дословно, числа passed/failed/skipped; `skipped` = 0, иначе каждый пропуск с причиной.
-2. Кейсы с островом: кейс → мутация → результат прогона.
-3. Где решил иначе, чем постановка, и почему.
-4. Что обещано и не сделано.
-5. Свои промахи. Отчёт без промахов подозрителен.
+Five sections, each non-empty; without any of them the stage does not pass the barrier:
+1. Gates: the command verbatim, the passed/failed/skipped numbers; `skipped` = 0, otherwise every skip with a reason.
+2. Island cases: case → mutation → run result.
+3. Where I decided differently from the specification, and why.
+4. What was promised but not done.
+5. Own misses. A report without misses is suspicious.
 
-## Конверт круга                    <!-- только для стадии аудита; pipeline.md#audit-envelope -->
-Аудиторов: <N> · Семейства: <…> · ESC-пул: запрещён/разрешён · Пара (агент, вопрос) прошлого круга: <…> — не повторять.
+## Round envelope                    <!-- audit stage only; pipeline.md#audit-envelope -->
+Auditors: <N> · Families: <…> · ESC pool: forbidden/allowed · Previous round's (agent, question) pair: <…> — do not repeat.
 
-## Завершение
-По завершении перевести эту подзадачу в `done`: `multica issue status <id> done`. НЕ оставлять `in_review` — стадия не закроется.
-<!-- слой 1: agent-runtime-gotchas#done-line-in-body -->
+## Completion
+On completion set this sub-issue to `done`: `multica issue status <id> done`. Do NOT leave it `in_review` — the stage will not close.
+<!-- layer 1: agent-runtime-gotchas#done-line-in-body -->

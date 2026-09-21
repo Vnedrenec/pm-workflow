@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Разбор строки счёта круга ревью (docs/review-cycle.md#score-line).
+# Parses the review round score line (docs/review-cycle.md#score-line).
 #
-# Использование:
+# Usage:
 #   bash scripts/parse-score-line.sh "Round: 1 | Stage: code | Confirmed findings: 0 | Failed runs: 0 | Coverage: full"
-#   echo "<строка>" | bash scripts/parse-score-line.sh
-#   bash scripts/parse-score-line.sh --self-test        # фикстуры scripts/fixtures/score-line/*.txt
+#   echo "<line>" | bash scripts/parse-score-line.sh
+#   bash scripts/parse-score-line.sh --self-test        # fixtures scripts/fixtures/score-line/*.txt
 #
-# Выход: 0 и JSON {"round":N,"stage":"…","confirmed":N,"failed":N,"coverage":"…"} на stdout,
-# либо 1 и причина на stderr. Обязательны все пять полей в фиксированном порядке;
-# допуски — только пробелы вокруг «|» и «:»; регистр ключей и значений точный.
+# Exit: 0 and JSON {"round":N,"stage":"…","confirmed":N,"failed":N,"coverage":"…"} on stdout,
+# or 1 and the reason on stderr. All five fields are required in a fixed order;
+# the only tolerance is spaces around "|" and ":"; the case of keys and values is exact.
 set -euo pipefail
 
 SCORE_RE='^Round:[[:space:]]*([0-9]+)[[:space:]]*\|[[:space:]]*Stage:[[:space:]]*(spec|arch|code)[[:space:]]*\|[[:space:]]*Confirmed findings:[[:space:]]*([0-9]+)[[:space:]]*\|[[:space:]]*Failed runs:[[:space:]]*([0-9]+)[[:space:]]*\|[[:space:]]*Coverage:[[:space:]]*(full|partial|unknown)[[:space:]]*$'

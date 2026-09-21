@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# Машинные проверки регламента — критерии 1–10 и 18–21 постановки о выносе регламента
-# (в приватном архиве) и сторож стоп-слов по постановке об обезличивании
-# (docs/superpowers/plans/2026-09-18-sanitize-pm-workflow.md §6.5). Метка правил: [CI: check].
+# Machine checks of the regulation — criteria 1–10 and 18–21 of the regulation-extraction
+# specification (in the private archive) and the stop-word guard per the sanitization
+# specification (docs/superpowers/plans/2026-09-18-sanitize-pm-workflow.md §6.5). Rule label: [CI: check].
 #
-#   bash scripts/check-rules.sh                    # все проверки; код 1 при любой ошибке
-#   bash scripts/check-rules.sh --list-no-incident # печатает правила со строкой «Инцидент: нет»
-#   bash scripts/check-rules.sh --show             # сторож печатает совпавшие фрагменты (только локально)
-#   bash scripts/check-rules.sh --history          # только сторож по всей истории git (отдельный шаг CI)
+#   bash scripts/check-rules.sh                    # all checks; exit code 1 on any error
+#   bash scripts/check-rules.sh --list-no-incident # prints rules with the line "Incident: none"
+#   bash scripts/check-rules.sh --show             # the guard prints matched fragments (local only)
+#   bash scripts/check-rules.sh --history          # the guard only, over the whole git history (a separate CI step)
 #
-# Приватная часть словаря стоп-слов: переменная STOP_WORDS_PRIVATE (в CI — из секрета) либо файл
-# STOP_WORDS_PRIVATE_FILE. Без неё при CI=true — FAIL, локально — WARN и проверка публичной частью.
-# Диапазон PR (заголовок, сообщения коммитов) проверяется, когда заданы PR_TITLE и PR_BASE_SHA.
+# Private part of the stop-word dictionary: the STOP_WORDS_PRIVATE variable (in CI — from the secret)
+# or the STOP_WORDS_PRIVATE_FILE file. Without it at CI=true — FAIL, locally — WARN and a check by the public part only.
+# The PR range (title, commit messages) is checked when PR_TITLE and PR_BASE_SHA are set.
 #
-# Только bash + grep/awk/sed, без зависимостей. Совместимо с bash 3.2 (macOS) и BSD grep.
+# bash + grep/awk/sed only, no dependencies. Compatible with bash 3.2 (macOS) and BSD grep.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# относительный STOP_WORDS_PRIVATE_FILE считается от каталога вызова, а не от корня репозитория: резолвим до cd
+# a relative STOP_WORDS_PRIVATE_FILE is resolved from the call directory, not the repository root: resolve it before cd
 if [[ -n "${STOP_WORDS_PRIVATE_FILE:-}" && "$STOP_WORDS_PRIVATE_FILE" != /* ]]; then
   STOP_WORDS_PRIVATE_FILE="$PWD/$STOP_WORDS_PRIVATE_FILE"
 fi
@@ -39,16 +39,16 @@ if [[ "$MODE" == "--list-no-incident" ]]; then
     awk -v file="$f" '
       /^### / { title=$0; sub(/^### /, "", title); anchor="" }
       /<a id="/ { match($0, /id="[^"]+"/); anchor=substr($0, RSTART+4, RLENGTH-5) }
-      /^Инцидент: нет/ { printf "%s#%s · %s\n", file, anchor, title }
+      /^Incident: none/ { printf "%s#%s · %s\n", file, anchor, title }
     ' "$f"
   done
   exit 0
 fi
 
-# ---------------------------------------------------------------- 4. стоп-слова (сторож)
-# Публичные структурные шаблоны + приватный литеральный список; любое совпадение — FAIL с координатами
-# и номером шаблона, без текста совпадения (логи CI публичного репозитория читают все).
-# Шаг 0 — фильтр: разрешённые токены вырезаются из строки до прогона шаблонов (повторно, пока вывод меняется).
+# ---------------------------------------------------------------- 4. stop words (the guard)
+# Public structural patterns + a private literal list; any match is a FAIL with the coordinates
+# and the pattern number, without the matched text (everyone can read the CI logs of a public repository).
+# Step 0 — a filter: allowed tokens are cut out of the line before the patterns run (repeatedly, while the output changes).
 if [[ -z "${LC_ALL:-}" ]]; then
   if locale -a 2>/dev/null | grep -qx 'C.UTF-8'; then export LC_ALL=C.UTF-8; else export LC_ALL=en_US.UTF-8; fi
 fi
@@ -61,7 +61,7 @@ STOP_SHOW=0; [[ "$MODE" == "--show" ]] && STOP_SHOW=1
 stop_public=()
 stop_private=()
 allow_sed=""
-stop_matches=0   # только совпадения сторожа; FAIL конфигурации (нет словаря, словарь короткий) — не совпадения
+stop_matches=0   # guard matches only; a configuration FAIL (no dictionary, a short dictionary) is not a match
 
 read_patterns() { grep -v '^[[:space:]]*#' "$1" | grep -v '^[[:space:]]*$' || true; }
 
@@ -99,7 +99,7 @@ fi
 STOP_TMP=$(mktemp -d "${TMPDIR:-/tmp}/check-rules.XXXXXX")
 trap 'rm -rf "$STOP_TMP"' EXIT
 
-# шаг 0: stdin → stdout без разрешённых токенов; построчно, нумерация строк не меняется
+# step 0: stdin → stdout without the allowed tokens; line by line, line numbering does not change
 stop_filter() {
   if [[ -z "$allow_sed" ]]; then cat; return; fi
   local a="$STOP_TMP/f.a" b="$STOP_TMP/f.b"
@@ -112,8 +112,8 @@ stop_filter() {
   cat "$a"
 }
 
-# вход: строки вида «<координата><TAB><текст>»; шаблоны гоняются только по тексту, координата — в FAIL.
-# $1 — как назвать координату. Печатает FAIL на каждое совпадение: только координата и номер шаблона.
+# input: lines of the form "<coordinate><TAB><text>"; the patterns run over the text only, the coordinate goes into the FAIL.
+# $1 — how to name the coordinate. Prints a FAIL per match: the coordinate and the pattern number only.
 stop_scan() {
   local what="$1" i pat kind
   local coords="$STOP_TMP/coords" text="$STOP_TMP/text" nums="$STOP_TMP/nums"
@@ -121,7 +121,7 @@ stop_scan() {
   [[ -s "$STOP_TMP/in" ]] || return 0
   cut -f1 "$STOP_TMP/in" > "$coords"
   cut -f2- "$STOP_TMP/in" | stop_filter > "$text"
-  # не grep -q: при pipefail ранний выход grep даёт SIGPIPE записи и ложный «нет совпадений»
+  # not grep -q: with pipefail an early grep exit gives the writer a SIGPIPE and a false "no matches"
   local all="$STOP_TMP/all"; : > "$all"
   for pat in ${stop_public[@]+"${stop_public[@]}"} ${stop_private[@]+"${stop_private[@]}"}; do printf '%s\n' "$pat" >> "$all"; done
   [[ "$(grep -cE -f "$all" "$text" || true)" == "0" ]] && return 0
@@ -140,15 +140,15 @@ stop_scan() {
 }
 
 if [[ "$MODE" == "--history" ]]; then
-  # 5. вся история: патчи всех коммитов (координата — commit:строка патча) и авторы
+  # 5. the whole history: the patches of all commits (the coordinate is commit:patch-line) and the authors
   stop_scan "in history, commit" < <(git log --all -p --format='commit %H' \
     | awk 'BEGIN{OFS="\t"} /^commit [0-9a-f]+$/ && length($2)==40 {c=$2; n=0} {n++; print c ":" n, $0}')
-  # e-mail и имена авторов; адрес GitHub noreply вида <id>+<login>@users.noreply.github.com и совпадающее
-  # с его login имя автора не считаются (login виден в любом случае как владелец репозитория — постановка §12, В3).
-  # Коммит, созданный самим GitHub (коммиттер GitHub + его безымянный no-reply адрес, напр. тест-мерж
-  # refs/pull/N/merge), тоже не считается: поля автора (профильный e-mail создателя PR) выбирает GitHub,
-  # а не коммитивший, — ложное срабатывание на каждом PR (расширение того же исключения В3;
-  # литерал адреса собран конкатенацией, чтобы файл не ловил сам себя деревом)
+  # author e-mails and names; a GitHub noreply address of the form <id>+<login>@users.noreply.github.com and an author
+  # name matching its login do not count (the login is visible anyway as the repository owner — specification §12, V3).
+  # A commit created by GitHub itself (committer GitHub + its plain no-reply address, e.g. the test merge
+  # refs/pull/N/merge) does not count either: the author fields (the PR creator's profile e-mail) are chosen by GitHub,
+  # not by the committer — a false positive on every PR (an extension of the same V3 exception;
+  # the address literal is assembled by concatenation so the file does not catch itself in the tree)
   stop_scan "in history, author of commit" < <(git log --all --format='%H%x09%an%x09%ae%x09%cn%x09%ce' \
     | awk -F'\t' 'BEGIN{OFS="\t"} {
         gh_nr = ("noreply" "@" "github" "." "com")
@@ -163,15 +163,15 @@ if [[ "$MODE" == "--history" ]]; then
   echo "check-rules --history: 0 errors"; exit 0
 fi
 
-# 2. дерево: каждый файл из git ls-files, кроме самих словарей
+# 2. the tree: every file from git ls-files, except the dictionaries themselves
 while IFS= read -r f; do
   [[ "$f" == "$STOP_PUBLIC" || "$f" == "$STOP_ALLOW" ]] && continue
   [[ -f "$f" ]] || continue
   stop_scan "at" < <(awk -v f="$f" 'BEGIN{OFS="\t"} {print f ":" NR, $0}' "$f")
 done < <(git ls-files)
-# 3. имена файлов
+# 3. file names
 stop_scan "in path, git ls-files line" < <(git ls-files | awk 'BEGIN{OFS="\t"} {print NR, $0}')
-# 4. диапазон PR: заголовок и сообщения коммитов
+# 4. the PR range: the title and the commit messages
 if [[ -n "${PR_TITLE:-}" && -n "${PR_BASE_SHA:-}" ]]; then
   stop_scan "in PR" < <(printf 'title\t%s\n' "$PR_TITLE")
   stop_scan "in commit message" < <(git log --format='%H%x09%B' "$PR_BASE_SHA"..HEAD \
@@ -180,7 +180,7 @@ fi
 n=$stop_matches
 if (( n > 0 )); then echo "stop-words: $n match(es); run locally: bash scripts/check-rules.sh --show"; else echo "stop-words: 0 matches"; fi
 
-# ---------------------------------------------------------------- 1. каждое правило — один дом
+# ---------------------------------------------------------------- 1. every rule — one home
 if [[ ! -f docs/rule-index.tsv ]]; then
   fail "docs/rule-index.tsv missing"
 else
@@ -195,7 +195,7 @@ else
     if [[ ! -f "$file" ]]; then fail "rule-index: file '$file' ($key) missing"; continue; fi
     if ! grep -q "id=\"$anchor\"" "$file"; then fail "rule-index: anchor '$anchor' ($key) not in $file"; fi
   done < docs/rule-index.tsv
-  # обратная сторона: каждый якорь в файлах правил есть в индексе
+  # the reverse side: every anchor in the rule files is in the index
   for f in $RULE_FILES; do
     [[ -f "$f" ]] || continue
     for a in $(grep -o 'id="[^"]*"' "$f" | sed 's/id="//; s/"//'); do
@@ -205,63 +205,63 @@ else
   echo "rules in index: $rules"
 fi
 
-# ---------------------------------------------------------------- 2. метка у каждого правила
+# ---------------------------------------------------------------- 2. a label on every rule
 for f in $RULE_FILES; do
   [[ -f "$f" ]] || { fail "missing rule file $f"; continue; }
-  bad=$(grep -nE '^### ' "$f" | grep -vE '`\[(CI: check|ревью: [^]]+ @ [^]]+)\]`$' || true)
+  bad=$(grep -nE '^### ' "$f" | grep -vE '`\[(CI: check|review: [^]]+ @ [^]]+)\]`$' || true)
   if [[ -n "$bad" ]]; then fail "label missing on rule heading in $f:"$'\n'"$bad"; fi
 done
 
-# ---------------------------------------------------------------- 3. строка «Инцидент:» у каждого правила
+# ---------------------------------------------------------------- 3. an "Incident:" line on every rule
 for f in $RULE_FILES; do
   [[ -f "$f" ]] || continue
   out=$(awk -v file="$f" '
     function flush() {
       if (title != "") {
-        if (cnt != 1) printf "%s: rule \"%s\" has %d lines \"Инцидент:\", expected 1\n", file, title, cnt
+        if (cnt != 1) printf "%s: rule \"%s\" has %d lines \"Incident:\", expected 1\n", file, title, cnt
         if (anchors != 1) printf "%s: rule \"%s\" has %d anchors <a id>, expected 1\n", file, title, anchors
       }
     }
     /^### / { flush(); title=$0; sub(/^### /, "", title); cnt=0; anchors=0; next }
     /<a id="/ { anchors++ }
-    /^Инцидент: / {
+    /^Incident: / {
       cnt++
-      if ($0 !~ /^Инцидент: нет$/ && $0 !~ /incidents\.md#[a-z0-9-]+/) printf "%s: rule \"%s\" incident line malformed: %s\n", file, title, $0
+      if ($0 !~ /^Incident: none$/ && $0 !~ /incidents\.md#[a-z0-9-]+/) printf "%s: rule \"%s\" incident line malformed: %s\n", file, title, $0
     }
     END { flush() }
   ' "$f")
   [[ -n "$out" ]] && fail "$out"
 done
 
-# ---------------------------------------------------------------- 5. каждая ссылка incidents.md#якорь ведёт на якорь
+# ---------------------------------------------------------------- 5. every incidents.md#anchor link leads to an anchor
 refs=$(grep -rhoE 'incidents\.md#[a-z0-9-]+' docs templates skills CHANGELOG.md README.md \
         --exclude-dir=superpowers --exclude-dir=archive --exclude-dir=references 2>/dev/null | sed 's/.*#//' | sort -u || true)
 for a in $refs; do
   grep -q "<a id=\"$a\"></a>" "$INCIDENTS" || fail "link incidents.md#$a points to missing anchor"
 done
 nrows=$(grep -c '^| <a id="' "$INCIDENTS" || true)
-# у каждой строки резолвера непустые «Id», «Симптом», «Следствие», «Правила» (столбцы 3–6 по разделителю |)
+# every resolver row has non-empty "Id", "Symptom", "Consequence", "Rules" (columns 3–6 by the | separator)
 out=$(awk -F'|' '/^\| <a id="/ { for (c = 3; c <= 6; c++) { v = $c; gsub(/^[ \t]+|[ \t]+$/, "", v); if (v == "") printf "%s:%d: empty column %d\n", FILENAME, NR, c - 1 } }' "$INCIDENTS")
 [[ -n "$out" ]] && fail "resolver rows with empty cells:"$'\n'"$out"
 echo "incident rows in resolver: $nrows"
 
-# ---------------------------------------------------------------- 6. пять строк у пунктов раздела A скилла; дата снятия в B
+# ---------------------------------------------------------------- 6. five lines on the section A items of the skill; a removal date in B
 if [[ ! -f "$GOTCHAS" ]]; then
   fail "$GOTCHAS missing"
 else
   out=$(awk '
     function flush() {
       if (section == "A" && title != "") {
-        if (s != 1) printf "A/%s: \"- Симптом:\" lines = %d\n", title, s
-        if (c != 1) printf "A/%s: \"- Причина:\" lines = %d\n", title, c
-        if (o != 1) printf "A/%s: \"- Обход:\" lines = %d\n", title, o
-        if (i != 1) printf "A/%s: \"- Инцидент:\" lines = %d\n", title, i
-        if (u != 1) printf "A/%s: \"- Условие снятия:\" lines = %d\n", title, u
+        if (s != 1) printf "A/%s: \"- Symptom:\" lines = %d\n", title, s
+        if (c != 1) printf "A/%s: \"- Cause:\" lines = %d\n", title, c
+        if (o != 1) printf "A/%s: \"- Workaround:\" lines = %d\n", title, o
+        if (i != 1) printf "A/%s: \"- Incident:\" lines = %d\n", title, i
+        if (u != 1) printf "A/%s: \"- Removal condition:\" lines = %d\n", title, u
         if (an != 1) printf "A/%s: anchors = %d\n", title, an
       }
       if (section == "B" && title != "") {
-        if (u < 1) printf "B/%s: no \"- Условие снятия:\" line\n", title
-        else if (!udate) printf "B/%s: \"- Условие снятия:\" without YYYY-MM-DD date\n", title
+        if (u < 1) printf "B/%s: no \"- Removal condition:\" line\n", title
+        else if (!udate) printf "B/%s: \"- Removal condition:\" without YYYY-MM-DD date\n", title
       }
     }
     /^## A\./ { flush(); section="A"; title=""; next }
@@ -269,11 +269,11 @@ else
     /^## /    { flush(); section="other"; title=""; next }
     /^### /   { flush(); title=$0; sub(/^### /, "", title); s=c=o=i=u=an=udate=0; next }
     /<a id="/ { an++ }
-    /^- Симптом:/ { s++ }
-    /^- Причина:/ { c++ }
-    /^- Обход:/ { o++ }
-    /^- Инцидент:/ { i++ }
-    /^- Условие снятия:/ { u++; if ($0 ~ /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) udate=1 }
+    /^- Symptom:/ { s++ }
+    /^- Cause:/ { c++ }
+    /^- Workaround:/ { o++ }
+    /^- Incident:/ { i++ }
+    /^- Removal condition:/ { u++; if ($0 ~ /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) udate=1 }
     END { flush() }
   ' "$GOTCHAS")
   [[ -n "$out" ]] && fail "skill agent-runtime-gotchas structure:"$'\n'"$out"
@@ -282,7 +282,7 @@ else
   echo "gotchas: section A $na items, section B $nb items"
 fi
 
-# ---------------------------------------------------------------- 7. строка счёта из шаблона + фикстуры
+# ---------------------------------------------------------------- 7. the score line from the template + the fixtures
 if [[ ! -f templates/review-report.md ]]; then
   fail "templates/review-report.md missing"
 else
@@ -297,7 +297,7 @@ if ! bash scripts/parse-score-line.sh --self-test >/dev/null 2>&1; then
   fail "scripts/parse-score-line.sh --self-test failed"
 fi
 
-# ---------------------------------------------------------------- 8. строка завершения в шаблоне подзадачи
+# ---------------------------------------------------------------- 8. the completion line in the subtask template
 if [[ -f templates/subtask.md ]]; then
   n=$(grep -c 'multica issue status <id> done' templates/subtask.md || true)
   [[ "$n" == "1" ]] || fail "templates/subtask.md: 'multica issue status <id> done' occurs $n times, expected 1"
@@ -305,23 +305,30 @@ else
   fail "templates/subtask.md missing"
 fi
 
-# ---------------------------------------------------------------- 9. CHANGELOG — четыре строки у каждой записи
+# ---------------------------------------------------------------- 9. CHANGELOG — four lines per entry (bilingual: RU or EN, exactly one of the two)
 if [[ -f CHANGELOG.md ]]; then
-  out=$(awk '
+  # The Russian field names are assembled from byte escapes so that this file itself stays
+  # Cyrillic-free (acceptance criterion A1); each check is equivalent to the anchored regex
+  # "line starts with the Russian field name OR starts with the English one", one count per entry.
+  RU_DEC=$'- \320\240\320\265\321\210\320\265\320\275\320\270\320\265:'
+  RU_WHAT=$'- \320\247\321\202\320\276 \320\270\320\267\320\274\320\265\320\275\320\270\320\273\320\276\321\201\321\214:'
+  RU_INC=$'- \320\230\320\275\321\206\320\270\320\264\320\265\320\275\321\202:'
+  RU_AFF=$'- \320\227\320\260\321\202\321\200\320\276\320\275\321\203\321\202\320\276:'
+  out=$(awk -v ru_dec="$RU_DEC" -v ru_what="$RU_WHAT" -v ru_inc="$RU_INC" -v ru_aff="$RU_AFF" '
     function flush() {
       if (entry != "") {
-        if (r != 1) printf "%s: \"- Решение:\" = %d\n", entry, r
-        if (w != 1) printf "%s: \"- Что изменилось:\" = %d\n", entry, w
-        if (i != 1) printf "%s: \"- Инцидент:\" = %d\n", entry, i
-        if (t != 1) printf "%s: \"- Затронуто:\" = %d\n", entry, t
+        if (r != 1) printf "%s: \"- Decision:\" = %d\n", entry, r
+        if (w != 1) printf "%s: \"- What changed:\" = %d\n", entry, w
+        if (i != 1) printf "%s: \"- Incident:\" = %d\n", entry, i
+        if (t != 1) printf "%s: \"- Affected:\" = %d\n", entry, t
       }
     }
     /^## [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] — / { flush(); entry=$0; r=w=i=t=0; n++; next }
     /^## / { flush(); entry="" ; if ($0 !~ /^## [0-9]/) printf "malformed entry heading: %s\n", $0; next }
-    /^- Решение:/ { r++ }
-    /^- Что изменилось:/ { w++ }
-    /^- Инцидент:/ { i++ }
-    /^- Затронуто:/ { t++ }
+    index($0, ru_dec) == 1 || /^- Decision:/ { r++ }
+    index($0, ru_what) == 1 || /^- What changed:/ { w++ }
+    index($0, ru_inc) == 1 || /^- Incident:/ { i++ }
+    index($0, ru_aff) == 1 || /^- Affected:/ { t++ }
     END { flush(); printf "COUNT %d\n", n+0 }
   ' CHANGELOG.md)
   cl_n=$(echo "$out" | sed -n 's/^COUNT //p')
@@ -332,15 +339,15 @@ else
   fail "CHANGELOG.md missing"
 fi
 
-# ---------------------------------------------------------------- 10. скилл слоя 1 не содержит регламента
+# ---------------------------------------------------------------- 10. the layer 1 skill contains no regulation
 if [[ -f "$GOTCHAS" ]]; then
-  bad=$(awk '/^## C\./{c=1} /^## [AB]\./{c=0} !c' "$GOTCHAS" | grep -niE 'решение владельца' || true)
-  [[ -n "$bad" ]] && fail "$GOTCHAS: 'Решение владельца' outside section C:"$'\n'"$bad"
-  bad=$(grep -niE 'предохранител|три кода' "$GOTCHAS" || true)
-  [[ -n "$bad" ]] && fail "$GOTCHAS: layer 2 words (предохранитель / три кода):"$'\n'"$bad"
+  bad=$(awk '/^## C\./{c=1} /^## [AB]\./{c=0} !c' "$GOTCHAS" | grep -niE 'owner decision' || true)
+  [[ -n "$bad" ]] && fail "$GOTCHAS: 'owner decision' outside section C:"$'\n'"$bad"
+  bad=$(grep -niE 'circuit breaker|three consecutive rounds' "$GOTCHAS" || true)
+  [[ -n "$bad" ]] && fail "$GOTCHAS: layer 2 words (circuit breaker / three consecutive rounds):"$'\n'"$bad"
 fi
 
-# ---------------------------------------------------------------- 18. обязательные строки блока code-stage шаблона
+# ---------------------------------------------------------------- 18. the required lines of the code-stage template block
 if [[ ! -f "$REQUIRED_LINES" ]]; then
   fail "$REQUIRED_LINES missing"
 else
@@ -354,12 +361,12 @@ else
   echo "required lines checked: $nreq"
 fi
 
-# ---------------------------------------------------------------- 19. копия в скилле тождественна оригиналу
+# ---------------------------------------------------------------- 19. the copy in the skill is identical to the original
 if ! out=$(bash scripts/build-skills.sh --check 2>&1); then
   fail "build-skills --check:"$'\n'"$out"
 fi
 
-# ---------------------------------------------------------------- 20. маршрутизатор полон
+# ---------------------------------------------------------------- 20. the router is complete
 ROUTER=skills/pm-workflow/SKILL.md
 if [[ ! -f "$ROUTER" ]]; then
   fail "$ROUTER missing"
@@ -374,11 +381,11 @@ else
   done
 fi
 
-# ---------------------------------------------------------------- 21. в docs/*.md нет ссылок ../
+# ---------------------------------------------------------------- 21. no ../ links in docs/*.md
 bad=$(grep -n '\.\./' docs/roles.md docs/pipeline.md docs/review-cycle.md docs/impact-class.md docs/ownership.md docs/incidents.md 2>/dev/null || true)
 [[ -n "$bad" ]] && fail "'../' links in docs (break in references/):"$'\n'"$bad"
 
-# ---------------------------------------------------------------- итог
+# ---------------------------------------------------------------- total
 if (( errors > 0 )); then
   echo "check-rules: $errors error(s)"
   exit 1
