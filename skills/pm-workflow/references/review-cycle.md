@@ -1,121 +1,121 @@
-# Цикл ревью: строка счёта, реестр, исключения, предохранитель, панель, scorecard
+# Review cycle: score line, registry, exceptions, circuit breaker, panel, scorecard
 
-Слой 2 регламента воркспейса. Формат правила — `README.md`; адрес правила — `review-cycle.md#<якорь>`. Источники текста: снимок инструкций PM на 18.09.2026 (в приватном архиве; разделы «Cycle-stopping rule», «Round score line and cycle closure»), файл проекта-источника `docs/engineering/pm-workflow.md` §2.6 и §3, скилл `agent-runtime-gotchas` (перенесённые правила). Пределы кругов по классу — `impact-class.md`.
+Layer 2 of the workspace regulation. Rule format — `README.md`; rule address — `review-cycle.md#<anchor>`. Sources of the text: the snapshot of the PM instructions as of 2026-09-18 (in the private archive; the sections "Cycle-stopping rule", "Round score line and cycle closure"), the source-project file `docs/engineering/pm-workflow.md` §2.6 and §3, the `agent-runtime-gotchas` skill (moved rules). Round limits per class — `impact-class.md`.
 
-## Строка счёта
+## Score line
 
-### Строка счёта — первая строка отчёта Reviewer, проверяется посимвольно `[CI: check]`
+### The score line — the first line of the Reviewer report, checked character by character `[CI: check]`
 <a id="score-line"></a>
 
-Первая строка отчёта Reviewer машиночитаема. Формат:
+The first line of the Reviewer report is machine-readable. Format:
 
 ```
 Round: N | Stage: spec|arch|code | Confirmed findings: N | Failed runs: M | Coverage: full|partial|unknown
 ```
 
-Обязательны все пять полей в этом порядке; допуски — только пробелы вокруг `|` и `:`; регистр ключей и значений точный. `Round` и `Stage` читает счётчик кругов в метаданных родителя и строка scorecard. `arch` — законное значение (Architecture Auditor), считается кругом стадии постановки; отчёт со `Stage: arch` не возвращать. Регулярное выражение (POSIX ERE):
+All five fields are required in this order; the only tolerance is spaces around `|` and `:`; the case of keys and values is exact. `Round` and `Stage` are read by the round counter in the parent metadata and by the scorecard row. `arch` is a legal value (Architecture Auditor), it counts as a specification stage round; do not return a report with `Stage: arch`. The regular expression (POSIX ERE):
 
 ```
 ^Round:[[:space:]]*([0-9]+)[[:space:]]*\|[[:space:]]*Stage:[[:space:]]*(spec|arch|code)[[:space:]]*\|[[:space:]]*Confirmed findings:[[:space:]]*([0-9]+)[[:space:]]*\|[[:space:]]*Failed runs:[[:space:]]*([0-9]+)[[:space:]]*\|[[:space:]]*Coverage:[[:space:]]*(full|partial|unknown)[[:space:]]*$
 ```
 
-Отчёт, чья первая строка не проходит формат, кругом не считается: вернуть Reviewer, а не угадывать числа. Закрытие применяется по двум числам и полю `Coverage`, без толкования текста; закрытие возможно только при `Coverage: full`. Держатель: `scripts/parse-score-line.sh` — в CI на примере из `review-report.md` и семи фикстурах; на барьере PM запускает скрипт на первой строке отчёта (`bash references/parse-score-line.sh "<строка>"` из каталога скилла), не читает глазами.
+A report whose first line does not pass the format does not count as a round: return it to the Reviewer, do not guess the numbers. Closure is applied by the two numbers and the `Coverage` field, without interpreting the text; closure is possible only at `Coverage: full`. Holder: `scripts/parse-score-line.sh` — in CI on the example from `review-report.md` and the seven fixtures; at the barrier the PM runs the script on the first line of the report (`bash references/parse-score-line.sh "<line>"` from the skill directory), never reads it by eye.
 
-Инцидент: нет
+Incident: none
 
-## Закрытие цикла
+## Cycle closure
 
-### Цикл закрывается только при двух условиях одновременно `[ревью: PM @ закрытие круга]`
+### The cycle closes only when two conditions hold at once `[review: PM @ round closure]`
 <a id="closure"></a>
 
-1. Строка счёта даёт закрытие: ноль подтверждённых новых находок при `Coverage: full`.
-2. Очередь реестра пуста: каждая строка реестра в состоянии `closed` либо несёт валидную метку в столбце `Exception` (`#exception-codes`).
+1. The score line gives closure: zero confirmed new findings at `Coverage: full`.
+2. The registry queue is empty: every registry row is in state `closed` or carries a valid label in the `Exception` column (`#exception-codes`).
 
-Оба выполнены — следующая стадия; хотя бы одно нет — цикл открыт. Проверка механическая: прочитать таблицу реестра (`#registry`); хоть одна строка не `closed` с пустой или невалидной ячейкой `Exception` — цикл не закрывается, реестр возвращается Reviewer с именами строк. Сверка 18.09.2026 (`CHANGELOG.md`): «минимум два круга» из файла проекта-источника §2.6 не действует — один чистый круг закрывает цикл; подтверждено владельцем 18.09.2026.
+Both hold — the next stage; at least one does not — the cycle is open. The check is mechanical: read the registry table (`#registry`); a single row not `closed` with an empty or invalid `Exception` cell — the cycle does not close, the registry goes back to the Reviewer with the row names. Reconciliation of 2026-09-18 (`CHANGELOG.md`): the "minimum two rounds" from the source-project file §2.6 does not apply — one clean round closes the cycle; confirmed by the owner 2026-09-18.
 
-Инцидент: нет
+Incident: none
 
-### Реестр находок — карточка под родителем `[ревью: PM @ закрытие круга]`
+### The findings registry — a card under the parent `[review: PM @ round closure]`
 <a id="registry"></a>
 
-Носитель реестра — отдельная карточка-реестр в трекере под родителем цикла; её id — в метаданных родителя, ключ `findings_registry_issue`. Реестр переживает цикл: остаётся в `backlog` под родителем, ключ не удаляется. Столбцы строки — `review-report.md` («Находки (реестр)»).
+The registry carrier is a separate registry card in the tracker under the cycle's parent; its id is in the parent metadata, key `findings_registry_issue`. The registry outlives the cycle: it stays in `backlog` under the parent, the key is not removed. Row columns — `review-report.md` ("Findings (registry)").
 
-Инцидент: нет
+Incident: none
 
-### Коды исключений — ровно три, других нет `[ревью: PM @ закрытие круга]`
+### Exception codes — exactly three, there are no others `[review: PM @ round closure]`
 <a id="exception-codes"></a>
 
-| Код | Смысл | Кто ставит | Реквизит — признак валидности, проверяется механически |
+| Code | Meaning | Who sets it | Reference — the validity sign, checked mechanically |
 |---|---|---|---|
-| `accepted-risk` | владелец принял находку как осознанный риск | владелец; Reviewer пишет в реестр по его решению | ссылка на решение владельца: id или дата решающего комментария |
-| `spun-out` | находка вынесена из цикла отдельной задачей | решает владелец; PM исполняет (создаёт карточку, пишет id) | id существующей карточки Multica в строке реестра |
-| `awaiting-owner` | находка в состоянии `needs-decision`, её «минимальный факт» — ответ владельца | Reviewer при синтезе круга | состояние строки `needs-decision` И поле «минимальный факт» называет ответ владельца, не прогон и не доступ |
+| `accepted-risk` | the owner accepted the finding as a conscious risk | the owner; the Reviewer writes it into the registry on his decision | a link to the owner decision: the id or date of the deciding comment |
+| `spun-out` | the finding is spun out of the cycle into a separate task | the owner decides; the PM executes (creates the card, writes the id) | the id of an existing Multica card in the registry row |
+| `awaiting-owner` | the finding is in state `needs-decision`, its "minimal fact" is the owner's answer | the Reviewer at round synthesis | the row state is `needs-decision` AND the "minimal fact" field names the owner's answer, not a run and not access |
 
-Ограничение на `awaiting-owner`: если минимальный факт — «прогон» или «доступ», исключение незаконно — такие факты цикл добывает сам. Невалидная метка = отсутствующая: `accepted-risk` без ссылки на решение, `spun-out` без id существующей карточки, `awaiting-owner` при факте «прогон»/«доступ». PM не спорит по существу — проверяет реквизиты; такая строка блокирует закрытие, реестр возвращается Reviewer с именем строки. Снимать или править метки самому — вне полномочий PM. Для класса `гигиена` реквизит `accepted-risk` = комментарий о классе (`impact-class.md#hygiene`).
+The restriction on `awaiting-owner`: if the minimal fact is "a run" or "access", the exception is illegal — the cycle obtains such facts itself. An invalid label = a missing one: `accepted-risk` without a link to the decision, `spun-out` without the id of an existing card, `awaiting-owner` with the fact "run"/"access". The PM does not argue substance — he checks the references; such a row blocks closure, the registry goes back to the Reviewer with the row name. Removing or editing labels himself is outside the PM's powers. For the `hygiene` class the `accepted-risk` reference = the class decision comment (`impact-class.md#hygiene`).
 
-Инцидент: нет
+Incident: none
 
-### Предохранитель: три круга без сходимости — стоп и владелец `[ревью: PM @ барьер стадии аудита]`
+### Circuit breaker: three rounds without convergence — stop and the owner `[review: PM @ audit stage barrier]`
 <a id="fuse"></a>
 
-Три круга подряд без сходимости — стоп, четвёртый не начинать: родитель в `blocked`, владельцу — что именно не сходится. «Без сходимости» = круг снова дал подтверждённые находки, то есть прошлые правки не закрыли проблему. Это предохранитель, не норма: по замерам постановка сходится за три ревизии, код — за два-три круга. Пределы по классу — `impact-class.md#limits-table`.
+Three rounds in a row without convergence — stop, do not start a fourth: the parent to `blocked`, to the owner — what exactly fails to converge. "Without convergence" = the round again produced confirmed findings, that is, the past edits did not close the problem. This is a circuit breaker, not the norm: by measurements a specification converges in three revisions, code — in two-three rounds. Limits per class — `impact-class.md#limits-table`.
 
-Инцидент: нет
+Incident: none
 
-### Ноль находок ≠ чистый результат при мёртвом прогоне `[ревью: Reviewer @ синтез круга]`
+### Zero findings ≠ a clean result on a dead run `[review: Reviewer @ round synthesis]`
 <a id="dead-run-zero"></a>
 
-Пустой ответ при `status=ok` — мёртвый прогон, не «не нашёл». Reviewer обязан различать и говорить явно (разбор — `agent-runtime-gotchas`, раздел «Разбор сорванного прогона»; поле `Failed runs` строки счёта). Отчёт без явной строки `Confirmed findings: N` кругом не считается — переспросить, а не угадывать.
+An empty answer at `status=ok` is a dead run, not "found nothing". The Reviewer must tell them apart and say so explicitly (analysis — `agent-runtime-gotchas`, the "Failed-run analysis" section; the `Failed runs` field of the score line). A report without an explicit `Confirmed findings: N` line does not count as a round — ask again, do not guess.
 
-Инцидент: нет
+Incident: none
 
-### Комментарий закрытия перечисляет исключённые строки `[ревью: PM @ закрытие круга]`
+### The closure comment lists the excepted rows `[review: PM @ round closure]`
 <a id="closure-comment"></a>
 
-Исключённые находки не испаряются. В комментарии закрытия перечислить каждую исключённую строку с кодом и реквизитами. Дальнейший надзор по коду: `spun-out` — исполнитель и владелец вынесенной карточки через штатный конвейер; `accepted-risk` и `awaiting-owner` — владелец, и комментарий закрытия адресует ему этот список явно.
+Excepted findings do not evaporate. In the closure comment list every excepted row with its code and references. Further oversight by code: `spun-out` — the executor and owner of the spun-out card through the normal pipeline; `accepted-risk` and `awaiting-owner` — the owner, and the closure comment addresses this list to him explicitly.
 
-Инцидент: нет
+Incident: none
 
-## Круг
+## Round
 
-### Предмет аудита — весь дифф, включая текст `[ревью: Reviewer @ круг]`
+### The audit subject — the whole diff, including text `[review: Reviewer @ round]`
 <a id="audit-subject"></a>
 
-Докблоки, шапки файлов, сообщения коммитов и заголовок PR — утверждения, проверяются как код; ложное утверждение — находка того же веса, что ложное обещание мутации.
+Docblocks, file headers, commit messages, and the PR title are claims — they are checked like code; a false claim is a finding of the same weight as a false promise of a mutation.
 
-Инцидент: [H](incidents.md#inc-h) — решение владельца 2026-09-14.
+Incident: [H](incidents.md#inc-h) — owner decision 2026-09-14.
 
-### Каждый круг находит свой слой; ревьюеру — замысел; находку воспроизводить до починки `[ревью: PM @ создание стадии аудита]`
+### Every round finds its own layer; give the reviewer the intent; reproduce a finding before fixing `[review: PM @ audit stage creation]`
 <a id="round-layers"></a>
 
-Практика: первый круг находит дефект в коде, второй — проверку, которая не умеет падать, третий — комментарий, обещающий больше, чем проверяет. Ревьюеру давать замысел, а не только дифф: без него он сверяет код сам с собой. Находку не чинить по рассказу — сначала воспроизвести: посылка находки дважды за день оказывалась неверной. После правок по находкам — новый круг: починка регулярно рождает дефект того же класса; исполнитель ломает НОВУЮ проверку до сдачи.
+Practice: the first round finds a defect in the code, the second — a check that does not know how to fail, the third — a comment promising more than it checks. Give the reviewer the intent, not only the diff: without it he compares the code against itself. Do not fix a finding from a story — reproduce it first: a finding's premise twice in one day turned out to be wrong. After edits per the findings — a new round: a fix regularly births a defect of the same class; the executor breaks the NEW check before handing over.
 
-Инцидент: нет
+Incident: none
 
-### Пара (агент, вопрос) не повторяется два круга подряд `[ревью: Reviewer @ сборка панели]`
+### An (agent, question) pair does not repeat two rounds in a row `[review: Reviewer @ panel assembly]`
 <a id="panel"></a>
 
-Агент, отработавший вопрос на круге N, на N+1 по тому же вопросу приносит почти ноль: он сошёлся на своей картине и обходит те же места. Меняется либо агент, либо угол вопроса; через круг пара снова допустима — между ними лёг чужой аудит и правка. Действует и на узкий круг одним аудитором, где соблазн «он уже в контексте» максимален. Порядок сборки панели: сначала отсечь вчерашнюю пару, потом выбирать замену по классу и цене. Пара прошлого круга пишется в конверт круга (`pipeline.md#audit-envelope`). Основание — решение владельца 2026-08-18 по замеру на Sol (карточки нет; запись в `CHANGELOG.md`).
+An agent that worked a question on round N brings almost zero on N+1 for the same question: he has converged on his picture and walks around the same places. Either the agent or the angle of the question changes; a round later the pair is allowed again — someone else's audit and edit have lain in between. This applies also to a narrow round with a single auditor, where the temptation "he is already in context" is maximal. Panel assembly order: first cut yesterday's pair, then pick a replacement by class and price. The previous round's pair is written into the round envelope (`pipeline.md#audit-envelope`). Basis — owner decision 2026-08-18 on a measurement on Sol (no card; entry in `CHANGELOG.md`).
 
-Инцидент: нет
+Incident: none
 
-### Один представитель семейства моделей на круг; таблица прогонов `[ревью: Reviewer @ сборка панели]`
+### One representative of a model family per round; the run table `[review: Reviewer @ panel assembly]`
 <a id="one-per-family"></a>
 
-Два варианта одной модели дают пересекающиеся находки за двойную цену и время. Состав: сильная модель на «найди дыру» и «границы», средняя на аудит постановки, дешёвая на «сверь факты». Таблица прогонов (подтверждено / ложных / уникальных / срыв) — в отчёте каждого круга (`review-report.md`, «Панель»), иначе выбор аудитора идёт по впечатлению. Задание аудитору включает бюджет контекста и требование писать находки по мере обнаружения.
+Two variants of one model produce overlapping findings at double the price and time. Composition: a strong model for "find the hole" and "boundaries", a mid one for specification audit, a cheap one for "reconcile the facts". The run table (confirmed / false / unique / failed) is in every round's report (`review-report.md`, "Panel"), otherwise the choice of auditor goes by impression. The assignment to an auditor includes a context budget and the requirement to write findings as they are discovered.
 
-Инцидент: [T](incidents.md#inc-t).
+Incident: [T](incidents.md#inc-t).
 
-### Scorecard — строка на прогон, гейт закрытия круга `[ревью: PM @ закрытие круга]`
+### Scorecard — a row per run, the round closure gate `[review: PM @ round closure]`
 <a id="scorecard"></a>
 
-Каждый круг ревью оценивается, оценки живут в git: строки должны пережить воркспейс, а дифф — единственная честная запись о правке прошлого числа. Репозиторий — тот, что зарегистрирован в реестре воркспейса с описанием `scorecard`; адрес — `multica repo list`, никогда не из памяти и не по номеру карточки (`incidents.md#inc-a`). Reviewer сам пишет свои строки — одним PR на прогон, файл `data/rows.d/<YYYY-MM-DD>-<task-slug>-<agent-slug>.csv`. Гейт: круг закрывается, только если вторая строка отчёта Reviewer — `Scorecard: <URL PR>` и по этому URL существует PR в репозитории `scorecard` ровно с одним файлом по маске с датой круга и задачей; проверка PM — `gh pr view <URL> --json files --jq '.files[].path'`. Мерж PR scorecard не требуется — его делает владелец, он не блокирует конвейер. Нет `gh` или прав — строка `Scorecard: blocked — <причина>`, круг НЕ закрывается, PM эскалирует владельцу в тот же час.
+Every review round is scored, the scores live in git: the rows must outlive the workspace, and the diff is the only honest record of editing a past number. The repository is the one registered in the workspace registry with the description `scorecard`; the address — `multica repo list`, never from memory and never by card number (`incidents.md#inc-a`). The Reviewer writes his own rows — one PR per run, file `data/rows.d/<YYYY-MM-DD>-<task-slug>-<agent-slug>.csv`. Gate: a round closes only if the second line of the Reviewer report is `Scorecard: <PR URL>` and at that URL there exists a PR in the `scorecard` repository with exactly one file matching the mask, with the round date and the task; the PM check — `gh pr view <URL> --json files --jq '.files[].path'`. Merging the scorecard PR is not required — the owner does it, it does not block the pipeline. No `gh` or permissions — the line `Scorecard: blocked — <reason>`, the round does NOT close, the PM escalates to the owner within the hour.
 
-Инцидент: [A](incidents.md#inc-a) → ADR 0001 репозитория `scorecard`; последняя строка до этого правила — 2026-09-13 при кругах после.
+Incident: [A](incidents.md#inc-a) → ADR 0001 of the `scorecard` repository; the last row before this rule — 2026-09-13, with rounds after it.
 
-### Модель прогона — только из `multica runtime usage` `[ревью: Reviewer @ строка scorecard]`
+### The run model — only from `multica runtime usage` `[review: Reviewer @ scorecard line]`
 <a id="model-from-usage"></a>
 
-Изнутри прогона модель неопределима: харнесс подставляет продуктовую личность, агент повторит её. Никогда не спрашивать агента, на какой модели он работает, и не писать в постановку строку «Model: …» — она приглашает уверенный ответ на неотвечаемый вопрос и ложится в scorecard как факт. Источник: `multica runtime usage <runtime-id> --days 1 --output json` — строка на модель с `input_tokens`, `output_tokens`, `cache_read_tokens`; видно и что модели разные, и что `thinking_level` применился. Записи задач и argv модель не хранят (обход — `agent-runtime-gotchas#model-not-in-task`). Модель без подтверждения учётом — строка scorecard помечается недостоверной по модели.
+From inside a run the model is undeterminable: the harness substitutes a product persona and the agent will repeat it. Never ask an agent which model it runs on and never write a "Model: …" line into a specification — it invites a confident answer to an unanswerable question and lands in the scorecard as fact. Source: `multica runtime usage <runtime-id> --days 1 --output json` — one row per model with `input_tokens`, `output_tokens`, `cache_read_tokens`; it shows both that the models are different and that `thinking_level` applied. Task records and argv do not store the model (workaround — `agent-runtime-gotchas#model-not-in-task`). A model unconfirmed by accounting — the scorecard row is marked unreliable as to model.
 
-Инцидент: [C](incidents.md#inc-c).
+Incident: [C](incidents.md#inc-c).

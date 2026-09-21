@@ -1,10 +1,10 @@
 multica issue status <id> done
-## Что легко испортить
-## Отчёт
-Подагенты: не заводились
-Мутации проверять прогоном, не предсказанием
+## Easy to break
+## Report
+Subagents: none started
+Verify mutations by running, not by prediction
 `skipped` = 0
-Кейсы с островом
-иначе, чем постановка
-обещано и не сделано
-Свои промахи
+Island cases
+differently from the specification
+promised but not done
+Own misses

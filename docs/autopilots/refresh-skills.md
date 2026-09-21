@@ -1,13 +1,13 @@
-Синхронизация скиллов `agent-runtime-gotchas` и `pm-workflow` с `main` репозитория `pm-workflow` после мержа. Триггеры: вебхук GitHub на push в `main` (URL и секрет заводит владелец в настройках репозитория, в документах их нет) и запасной ежедневный прогон ночью (расписание и пояс настраиваются в самом автопилоте). Режим `run_only`: карточка не создаётся, след прогона — статус в `multica autopilot runs`.
+Synchronization of the `agent-runtime-gotchas` and `pm-workflow` skills with `main` of the `pm-workflow` repository after a merge. Triggers: a GitHub webhook on push to `main` (the owner creates the URL and secret in the repository settings, they are in no documents) and a backup daily run at night (the schedule and time zone are configured in the autopilot itself). Mode `run_only`: no card is created, the trace of the run is the status in `multica autopilot runs`.
 
-Шаги прогона:
+Run steps:
 
 ```
-multica repo checkout <URL этого репозитория>
+multica repo checkout <URL of this repository>
 for id in <id agent-runtime-gotchas> <id pm-workflow>; do
-  multica skill get $id --output json > before-$id.json          # content_hash до
-  multica skill refresh $id --output json > after-$id.json        # 422/409/5xx — стоп, комментарий владельцу
+  multica skill get $id --output json > before-$id.json          # content_hash before
+  multica skill refresh $id --output json > after-$id.json        # 422/409/5xx — stop, a comment to the owner
 done
 ```
 
-Проверка: сравнить `content_hash` из `before-*.json` с `sha256sum` соответствующего `SKILL.md` из `main` ДО refresh. Не совпало И `main` не менялся с прошлого прогона (`git log -1 --format=%cI -- skills/`) — кто-то правил скилл в UI; это инцидент: строка в приватном реестре воркспейса (PR) и карточка класса `гигиена` владельцу. `2>&1` при разборе JSON не использовать.
+Check: compare the `content_hash` from `before-*.json` with the `sha256sum` of the corresponding `SKILL.md` from `main` BEFORE the refresh. They differ AND `main` did not change since the last run (`git log -1 --format=%cI -- skills/`) — someone edited the skill in the UI; that is an incident: a row in the private workspace registry (a PR) and a `hygiene`-class card to the owner. Do not use `2>&1` when parsing JSON.

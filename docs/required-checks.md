@@ -1,9 +1,9 @@
-# Контракт required checks — branch protection `main`
+# Required checks contract — branch protection of `main`
 
-Правило воркспейса: список required checks — контрактный файл в репозитории, не память PM и не настройка в UI GitHub сама по себе. Этот файл — единственный источник истины о том, какие job обязаны быть зелёными до мержа в `main` `pm-workflow`. Branch protection на `main` включена владельцем 2026-09-18 (решение В4, D-8).
+Workspace rule: the required checks list is a contract file in the repository, not the PM's memory and not a GitHub UI setting by itself. This file is the single source of truth for which jobs must be green before a merge into `pm-workflow` `main`. Branch protection on `main` was enabled by the owner on 2026-09-18 (decision V4, D-8).
 
-| job | workflow-файл | что проверяет | с какой даты required |
+| job | workflow file | what it checks | required since |
 |---|---|---|---|
-| `check` | `.github/workflows/check.yml` | `scripts/check-rules.sh` (внутри — `scripts/build-skills.sh --check` и сторож стоп-слов; шаг `--history` — по переменной `SANITIZED_HISTORY`) + `scripts/parse-score-line.sh --self-test` | 2026-09-18 |
+| `check` | `.github/workflows/check.yml` | `scripts/check-rules.sh` (inside — `scripts/build-skills.sh --check` and the stop-word guard; the `--history` step — per the `SANITIZED_HISTORY` variable) + `scripts/parse-score-line.sh --self-test` | 2026-09-18 |
 
-Переименовал job — правь этот контракт в том же PR и настройку branch protection (required status checks на `main`) до мержа: GitHub сверяет имя job буквально, и PR с переименованным job либо не мержится, либо — если старое имя забыли снять — мержится без проверки. Добавил или убрал required check — та же процедура: строка в таблице, настройка branch protection, один PR.
+Renamed a job — edit this contract in the same PR and the branch protection setting (required status checks on `main`) before the merge: GitHub compares the job name literally, and a PR with a renamed job either does not merge or — if the old name was forgotten to be removed — merges without any check. Added or removed a required check — the same procedure: a row in the table, the branch protection setting, one PR.

@@ -1,2 +1,2 @@
-<!-- Запись PM о передаче стадии — комментарием на карточке стадии (pipeline.md#handoff-record). -->
-Передача стадии <N> (PM, <дата>): решил <кто> по <основание: комментарий-id или решение владельца>; исполнитель — <агент>, потому что <довод>; промотирована `backlog → todo` в <время>, прогон подтверждён в `multica agent tasks` (<статус>). Следующая стадия <KEY-N> (<агент>) стоит в `backlog` до закрытия барьера.
+<!-- The PM's stage hand-off record — a comment on the stage card (pipeline.md#handoff-record). -->
+Stage <N> hand-off (PM, <date>): <who> decided per <basis: comment-id or owner decision>; the executor — <agent>, because <argument>; promoted `backlog → todo` at <time>, the run confirmed in `multica agent tasks` (<status>). The next stage <KEY-N> (<agent>) sits in `backlog` until the barrier closes.
