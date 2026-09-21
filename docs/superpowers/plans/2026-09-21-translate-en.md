@@ -151,6 +151,13 @@ word has two senses, the glossary splits it explicitly.
 | круг | round |
 | круг ревью | review round |
 | цикл ревью | review cycle |
+| аудит | audit |
+| аудитор (исполнитель стадии аудита: аудит постановки или кода) | auditor |
+| ревьюер (участник круга ревью: находит и консультирует по диффу) | reviewer |
+| замысел | intent |
+| отчёт | report |
+| коммит | commit |
+| инвариант | invariant |
 | строка счёта, счётная строка | score line |
 | реестр находок | findings registry |
 | карточка-реестр | registry card |
@@ -165,8 +172,7 @@ word has two senses, the glossary splits it explicitly.
 | сборка панели | panel assembly |
 | конверт круга | round envelope |
 | семейство моделей | model family |
-| ESC-пул | ESC pool |
-| эскалационный пул | escalation pool |
+| ESC-пул, эскалационный пул | ESC pool |
 | таблица прогонов | run table |
 | scorecard | scorecard (unchanged) |
 | покрытие | coverage |
@@ -224,11 +230,15 @@ Rule files (`docs/roles.md`, `docs/pipeline.md`, `docs/review-cycle.md`, `docs/i
 `docs/ownership.md`):
 
 - Heading label: `` `[CI: check]` `` (unchanged) or `` `[review: <role> @ <point>]` `` with
-  role ∈ {PM, Reviewer, Architect, Owner} and point from: `parent creation`, `stage creation`,
-  `wakeup`, `stage barrier`, `code stage barrier`, `audit stage barrier`, `promotion`,
-  `code stage promotion`, `audit stage promotion`, `round closure`, `panel assembly`, `round`,
-  `round synthesis`, `technical verdict`, `comment`, `acceptance comment`, `acceptance`,
-  `scorecard line`.
+  role ∈ {PM, Reviewer, Architect, Owner} and point from: `parent creation`, `card creation`,
+  `stages creation`, `stage creation`, `audit stage creation`, `wakeup`, `stage barrier`,
+  `code stage barrier`, `audit stage barrier`, `promotion`, `code stage promotion`,
+  `audit stage promotion`, `round`, `code round`, `round closure`, `panel assembly`,
+  `round synthesis`, `technical verdict`, `comment`, `resume comment`, `acceptance comment`,
+  `acceptance`, `scorecard line`. The list is exhaustive: every checkpoint value used in
+  `docs/` maps 1:1 into it (verify with `git grep -hoE 'ревью: [^]]+ @ ([^]]+)\]' main -- docs`).
+  `<точка>` in quoted rule templates (ADR 0001) is the placeholder form, not a checkpoint — it
+  translates to `<point>`.
 - Incident line: `Incident: none` — or — `Incident: [B](incidents.md#inc-b) — <explanation kept>`.
 
 Sub-issue template `templates/subtask.md` — section headers and fixed lines:
@@ -436,16 +446,23 @@ diff tsv-before.txt tsv-after.txt && echo TSV-OK
 grep -vc '^#' docs/rule-index.tsv   # 70
 
 # 3. rules without incident: same set as before (names translated, set unchanged)
-bash scripts/check-rules.sh --list-no-incident | cut -d'·' -f1 | sort > no-inc-after.txt
+bash scripts/check-rules.sh --list-no-incident | sed 's/ ·.*//' | sort > no-inc-after.txt
 git stash -q && git checkout -q origin/main -- docs scripts || true
-bash scripts/check-rules.sh --list-no-incident | cut -d'·' -f1 | sort > no-inc-before.txt
+bash scripts/check-rules.sh --list-no-incident | sed 's/ ·.*//' | sort > no-inc-before.txt
 git checkout -q HEAD -- docs scripts && git stash pop -q
 diff no-inc-before.txt no-inc-after.txt && echo NOINC-OK
 ```
 
 (Command 3 restores the working tree afterwards; if `git stash` is inconvenient, run the "before"
 half in a second `multica repo checkout` worktree instead. The list's left part is `file#anchor` —
-identical before/after even though the rule names to the right are translated.)
+identical before/after even though the rule names to the right are translated. The delimiter ` · `
+is multibyte, so the cut is `sed 's/ ·.*//'`, not `cut` — `cut -d` takes a single byte only.
+Commit your work before running command 3: it rewrites `docs/` and `scripts/` from `origin/main`
+and then restores them from `HEAD` — uncommitted edits in those paths are lost.)
+
+"Unchanged" for `docs/rule-index.tsv` means exactly: targets, row order, and the 70-row count
+(cmd 2 compares targets only); the key column is translated (§1) and does not redden any check —
+the briefs of stages 4 and 5 use "unchanged" in the same sense.
 
 ## 7. Acceptance criteria — mechanical, with commands
 
@@ -465,8 +482,19 @@ Excluded by design (§3): `CHANGELOG.md` history, `docs/superpowers/plans/2026-0
 The new CHANGELOG entry itself must be English — zero matches:
 
 ```bash
-awk '/^## /{n++} n>=1 && n<2' CHANGELOG.md | grep -P '[А-Яа-яЁё]' | wc -l
+awk '/^## /{n++} n>=1 && n<2' CHANGELOG.md | grep '[А-Яа-яЁё]' | wc -l
 ```
+
+The rewritten header paragraph of `CHANGELOG.md` (everything above the first `## ` entry heading)
+is covered the same way — zero matches:
+
+```bash
+awk '/^## /{n++} n<1' CHANGELOG.md | grep -c '[А-Яа-яЁё]'   # 0
+```
+
+(Plain `grep`, not `grep -P`: the code stage runs on BSD/macOS, where `grep -P` is not available;
+the Cyrillic bracket class works in both. `git grep -nP` in the first command keeps `-P` — git's
+grep ships with PCRE support.)
 
 **A2 — invariants green:** all three diffs of §6 empty, counters match the table.
 
@@ -528,7 +556,9 @@ number, is the identity; the ops stage records the mapping.
 3. `git fetch origin agent/jarvis-ai-pm/3a6058a025f8 && git merge --no-edit FETCH_HEAD` — the spec
    branch; your branch now contains this file (it may have been amended by the spec-rework stage —
    merge whatever its current head is).
-4. Translate per §3–§5; rebuild `references/` (§5.3); add the CHANGELOG entry (§8).
+4. Translate per §3–§5; rebuild `references/` (§5.3); add the CHANGELOG entry (§8). For
+   `docs/rule-index.tsv` translate the key column only — "unchanged" means targets + row order +
+   the 70-row count (§6 cmd 2), the briefs of stages 4 and 5 use the word in the same sense.
 5. Verify §7 locally (A1–A3, A5), push, open the PR:
    `gh pr create --base main --title "docs: translate pm-workflow content to English (card 573)"`.
    Title and every commit message use the `(card N)` slug form — tracker card identifiers are stop
