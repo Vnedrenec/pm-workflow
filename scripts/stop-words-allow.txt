@@ -15,3 +15,5 @@ gemini-3
 GLM-5
 GROK-4
 GEMINI-3
+# адрес платформы в трейлере Co-authored-by коммитов агентов; триггерует шаблон e-mail
+github@multica.ai
