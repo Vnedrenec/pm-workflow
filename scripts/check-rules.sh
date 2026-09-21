@@ -144,12 +144,18 @@ if [[ "$MODE" == "--history" ]]; then
   stop_scan "in history, commit" < <(git log --all -p --format='commit %H' \
     | awk 'BEGIN{OFS="\t"} /^commit [0-9a-f]+$/ && length($2)==40 {c=$2; n=0} {n++; print c ":" n, $0}')
   # e-mail и имена авторов; адрес GitHub noreply вида <id>+<login>@users.noreply.github.com и совпадающее
-  # с его login имя автора не считаются (login виден в любом случае как владелец репозитория — постановка §12, В3)
+  # с его login имя автора не считаются (login виден в любом случае как владелец репозитория — постановка §12, В3).
+  # Коммит, созданный самим GitHub (коммиттер GitHub + его безымянный no-reply адрес, напр. тест-мерж
+  # refs/pull/N/merge), тоже не считается: поля автора (профильный e-mail создателя PR) выбирает GitHub,
+  # а не коммитивший, — ложное срабатывание на каждом PR (расширение того же исключения В3;
+  # литерал адреса собран конкатенацией, чтобы файл не ловил сам себя деревом)
   stop_scan "in history, author of commit" < <(git log --all --format='%H%x09%an%x09%ae%x09%cn%x09%ce' \
     | awk -F'\t' 'BEGIN{OFS="\t"} {
+        gh_nr = ("noreply" "@" "github" "." "com")
         login = ""
         for (i = 3; i <= 5; i += 2) if ($i ~ /^[0-9]+\+[A-Za-z0-9-]+@users\.noreply\.github\.com$/) { login = $i; sub(/^[0-9]+\+/, "", login); sub(/@.*$/, "", login); $i = "" }
         if (login != "") for (i = 2; i <= 4; i += 2) if ($i == login) $i = ""
+        if ($4 == "GitHub" && $5 == gh_nr) { $2 = ""; $3 = ""; $5 = "" }
         print $1, $2 " " $3 " " $4 " " $5 }')
   n=$stop_matches
   if (( n > 0 )); then echo "stop-words in history: $n match(es); run locally: bash scripts/check-rules.sh --show"; else echo "stop-words in history: 0 matches"; fi
