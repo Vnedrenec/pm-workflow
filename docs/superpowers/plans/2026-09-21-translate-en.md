@@ -203,6 +203,7 @@ word has two senses, the glossary splits it explicitly.
 | обход | workaround |
 | условие снятия | removal condition |
 | сторож | guard |
+| сторож зависших (платформенный монитор) | stale watchdog |
 | стоп-слова, стоп-словарь | stop words, stop-word dictionary |
 | обезличивание | sanitization |
 | приватный реестр | private registry |
@@ -221,6 +222,16 @@ word has two senses, the glossary splits it explicitly.
 | вынос (регламента) | extraction |
 | срыв (прогона) | failed run |
 | виджет/карточка трекера проекта | project tracker card |
+
+The `сторож` split, declared explicitly (§4: two senses — two rows). `сторож` alone is one of this
+repository's own guards → `guard`. `сторож зависших` is the platform's stale-run monitor — a
+platform component, kept under its fixed platform name `stale watchdog`. The runtime identifier
+`idle_watchdog` (incident E) is a technical identifier, not a translation target (§3). Outside the
+identifier lines (the incident E rows of `docs/incidents.md`,
+`skills/agent-runtime-gotchas/SKILL.md`, `skills/pm-workflow/references/incidents.md`) and the
+excluded plan files, `watchdog` occurs in the tree exactly once — the `сторож зависших` rendering
+in `skills/agent-runtime-gotchas/SKILL.md` ("the stale watchdog sees it as silent");
+`git grep -c 'watchdog'` minus those identifier lines and excluded plans counts exactly 1.
 
 ### 4.2 Fixed line forms — copied verbatim
 
@@ -435,8 +446,8 @@ not into the tree):
 git fetch origin main
 
 # 1. anchor set is byte-identical (empty diff expected)
-git grep -ho 'id="[^"]*"' origin/main -- docs skills | sort > anchors-before.txt
-git grep -ho 'id="[^"]*"' -- docs skills | sort > anchors-after.txt
+git grep -ho 'id="[^"]*"' origin/main -- docs skills ':(exclude)docs/superpowers' | sort > anchors-before.txt
+git grep -ho 'id="[^"]*"' -- docs skills ':(exclude)docs/superpowers' | sort > anchors-after.txt
 diff anchors-before.txt anchors-after.txt && echo ANCHORS-OK
 
 # 2. rule-index: same rows, same order, targets byte-identical
@@ -453,6 +464,11 @@ git checkout -q HEAD -- docs scripts && git stash pop -q
 diff no-inc-before.txt no-inc-after.txt && echo NOINC-OK
 ```
 
+Both greps of command 1 carry the pathspec `':(exclude)docs/superpowers'` — the same exclusion
+guard 1 makes with `--exclude-dir=superpowers`. This specification itself lives under
+`docs/superpowers/` and quotes `id="…"` and the command verbatim; without the exclude a literal
+run diffs four phantom anchors out of the plan files instead of the expected empty diff.
+
 (Command 3 restores the working tree afterwards; if `git stash` is inconvenient, run the "before"
 half in a second `multica repo checkout` worktree instead. The list's left part is `file#anchor` —
 identical before/after even though the rule names to the right are translated. The delimiter ` · `
@@ -468,13 +484,23 @@ the briefs of stages 4 and 5 use "unchanged" in the same sense.
 
 All five must hold; each is demonstrated in the code-stage report by command + output.
 
-**A1 — scope closed, no Cyrillic left outside the exclusions.** Zero matches:
+**A1 — scope closed, no Cyrillic left outside the exclusions.** Zero matches. The tool is a
+codepoint measurement (`python3`), not `grep`: in a C/POSIX locale — the default on macOS agent
+shells — both plain `grep` and `git grep -P` apply the Cyrillic bracket class byte-wise and
+false-positive on multibyte typography (`—`, `·`, `→`, `«»`): 399 false lines over the translated
+files, 3 in the new CHANGELOG entry, 1 in its header — all found by run at the code stage. Below,
+the class `[А-Яа-яЁё]` is expanded to its exact codepoints (U+0410–U+042F, U+0430–U+044F,
+U+0401, U+0451) and `python3` decodes UTF-8 explicitly, so the counts are locale-independent —
+0/0/0 on BSD/macOS and Linux alike:
 
 ```bash
-git grep -nP '[А-Яа-яЁё]' -- README.md docs/roles.md docs/pipeline.md docs/review-cycle.md \
+git ls-files -- README.md docs/roles.md docs/pipeline.md docs/review-cycle.md \
   docs/impact-class.md docs/ownership.md docs/incidents.md docs/rule-index.tsv \
   docs/required-checks.md docs/adr docs/autopilots templates skills scripts/check-rules.sh \
-  scripts/build-skills.sh scripts/parse-score-line.sh scripts/required-lines .github | wc -l
+  scripts/build-skills.sh scripts/parse-score-line.sh scripts/required-lines .github \
+  | python3 -c 'import sys
+print(sum(1 for p in map(str.strip, sys.stdin) for ln in open(p, encoding="utf8")
+          if any("\u0410" <= c <= "\u042f" or "\u0430" <= c <= "\u044f" or c in "\u0401\u0451" for c in ln)))'
 ```
 
 Excluded by design (§3): `CHANGELOG.md` history, `docs/superpowers/plans/2026-09-18-*.md`,
@@ -482,19 +508,19 @@ Excluded by design (§3): `CHANGELOG.md` history, `docs/superpowers/plans/2026-0
 The new CHANGELOG entry itself must be English — zero matches:
 
 ```bash
-awk '/^## /{n++} n>=1 && n<2' CHANGELOG.md | grep '[А-Яа-яЁё]' | wc -l
+awk '/^## /{n++} n>=1 && n<2' CHANGELOG.md | python3 -c 'import sys
+print(sum(1 for ln in sys.stdin.buffer.read().decode("utf8").splitlines()
+          if any("\u0410" <= c <= "\u042f" or "\u0430" <= c <= "\u044f" or c in "\u0401\u0451" for c in ln)))'
 ```
 
 The rewritten header paragraph of `CHANGELOG.md` (everything above the first `## ` entry heading)
 is covered the same way — zero matches:
 
 ```bash
-awk '/^## /{n++} n<1' CHANGELOG.md | grep -c '[А-Яа-яЁё]'   # 0
+awk '/^## /{n++} n<1' CHANGELOG.md | python3 -c 'import sys
+print(sum(1 for ln in sys.stdin.buffer.read().decode("utf8").splitlines()
+          if any("\u0410" <= c <= "\u042f" or "\u0430" <= c <= "\u044f" or c in "\u0401\u0451" for c in ln)))'   # 0
 ```
-
-(Plain `grep`, not `grep -P`: the code stage runs on BSD/macOS, where `grep -P` is not available;
-the Cyrillic bracket class works in both. `git grep -nP` in the first command keeps `-P` — git's
-grep ships with PCRE support.)
 
 **A2 — invariants green:** all three diffs of §6 empty, counters match the table.
 
