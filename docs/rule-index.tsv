@@ -11,7 +11,7 @@ The code / mechanics stage barrier — green CI on the PR head	docs/pipeline.md#
 The round synthesis stage — separate, when the panel worked and the Reviewer died	docs/pipeline.md#synthesis-stage
 A stage closed through `cancelled` without an explanation is not promoted	docs/pipeline.md#cancelled-needs-reason
 Hand-off record for a stage and executor reconciliation	docs/pipeline.md#handoff-record
-Raise the next card on `in_review`, do not wait for `done`	docs/pipeline.md#next-card-on-in-review
+Sequential acceptance: raise the next card only after the owner's `done`	docs/pipeline.md#next-card-on-in-review
 One review round = one sub-issue	docs/pipeline.md#one-round-one-subtask
 Every sub-issue is self-sufficient	docs/pipeline.md#self-sufficient-body
 Stage bodies are assembled from templates	docs/pipeline.md#body-from-template

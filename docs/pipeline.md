@@ -88,12 +88,12 @@ The PM records every stage hand-off with a comment on the stage card: who decide
 
 Incident: none
 
-### Raise the next card on `in_review`, do not wait for `done` `[review: PM @ acceptance comment]`
+### Sequential acceptance: raise the next card only after the owner's `done` `[review: PM @ acceptance]`
 <a id="next-card-on-in-review"></a>
 
-`done` is terminal and emits no events: the next card after the parent's `done` does not start by itself. Raise the next card when the current one goes to `in_review`; in the acceptance comment name what has already been started to follow.
+Unaccepted parents must not stack (owner decision 2026-09-22, D-11 — rollback of raising the next card on `in_review`). When a parent goes to `in_review`, promote nothing; a run may end with an empty conveyor. `done` is terminal and emits no events, so before ending the run the PM leaves a wakeup on the parent — `multica issue wakeup create <id> --event issue.status_changed --filter-actor-type member --filter-actor-id <owner>` — and the owner's status change wakes the PM. On `done`: if no parent is `in_progress` and the `in_review` queue is empty, promote the next queue card (a ready parent from `backlog` → stage 1 `todo` → parent `in_progress`, verify the run started). On a status other than `done`: act by the acceptance and review-cycle rules, promote nothing.
 
-Incident: [L](incidents.md#inc-l) — the pipeline idled until a manual question.
+Incident: [L](incidents.md#inc-l) — the idle that had motivated promoting on `in_review`; the owner's-`done` wakeup removes both the idle and the stacking of unaccepted cards.
 
 ## Stages and their bodies
 
