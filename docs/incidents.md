@@ -30,3 +30,4 @@ Past rows are not rewritten retroactively: an error is a new row referencing the
 | <a id="inc-v"></a> | V | a card number was invented before the card existed | the auto-numbering gave the number to someone else's work, twice in one day | `pipeline.md#pr-slug` |
 | <a id="inc-w"></a> | W | the owner report and the card comment were separate actions | the task hung in Review for a day after the merge | `pipeline.md#comment-with-report` |
 | <a id="inc-x"></a> | X | document edits in a shared tree after the commit | were lost | `pipeline.md#spec-in-commit` |
+| <a id="inc-y"></a> | Y | an executor closed a blocked report with a plain-text question; no wakeup on the stage card | the PM was not woken by the block or by the report and idled until the owner nudged; the stage stood | `pipeline.md#blocked-mentions-pm`, `#stage-wakeup`; layer 1 `mention-is-run` |

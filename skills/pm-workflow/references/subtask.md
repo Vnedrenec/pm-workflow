@@ -37,6 +37,8 @@ Five sections, each non-empty; without any of them the stage does not pass the b
 3. Where I decided differently from the specification, and why.
 4. What was promised but not done.
 5. Own misses. A report without misses is suspicious.
+If the stage cannot continue: set the sub-issue to `blocked` and mention the PM by link in the report — a status change or plain text wakes nobody.
+<!-- pipeline.md#blocked-mentions-pm -->
 
 ## Round envelope                    <!-- audit stage only; pipeline.md#audit-envelope -->
 Auditors: <N> · Families: <…> · ESC pool: forbidden/allowed · Previous round's (agent, question) pair: <…> — do not repeat.
