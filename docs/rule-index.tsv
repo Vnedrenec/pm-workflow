@@ -24,6 +24,8 @@ Verify mutations by running, not by prediction	docs/pipeline.md#mutation-by-run
 The code stage report — five sections	docs/pipeline.md#builder-report
 Resuming work — only by mentioning the executor	docs/pipeline.md#resume-by-mention
 A mention = a new run; mention only when a run is needed	docs/pipeline.md#mention-policy
+A blocked stage wakes the PM — the report mentions the PM by link	docs/pipeline.md#blocked-mentions-pm
+A wakeup on the stage card — set at every promotion	docs/pipeline.md#stage-wakeup
 One writing agent per tree	docs/pipeline.md#one-writer
 Merge and report	docs/pipeline.md#merge-and-report
 The specification rides in the commit	docs/pipeline.md#spec-in-commit

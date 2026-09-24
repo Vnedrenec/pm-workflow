@@ -183,6 +183,20 @@ Incident: [G](incidents.md#inc-g) — owner decision 2026-09-08.
 
 Incident: none
 
+### A blocked stage wakes the PM — the report mentions the PM by link `[review: PM @ stage barrier]`
+<a id="blocked-mentions-pm"></a>
+
+An executor who cannot continue sets the sub-issue to `blocked` and posts the report with a `mention://` link to the PM in that same comment: a status change is a record, not a signal, and a question written as plain text wakes nobody (layer 1 `mention-is-run`). A `blocked` report without a PM mention is a defect of the report: the PM raises it at the barrier, and the miss goes into section 5 of the executor's own report. The line lives in the Report block of `templates/subtask.md` (held by required lines).
+
+Incident: [Y](incidents.md#inc-y) — owner decision 2026-09-24.
+
+### A wakeup on the stage card — set at every promotion `[review: PM @ promotion]`
+<a id="stage-wakeup"></a>
+
+Together with the promotion of any stage the PM sets a continuous event wakeup on the stage sub-issue: `task.completed` and `task.failed` of the executor — every end or failure of the executor's run wakes the PM without waiting for the owner. The wakeup is disabled when the stage barrier closes (`done`/`cancelled` of the sub-issue). A promotion without the wakeup is a defect of the hand-off record (`#handoff-record`): the PM verified that the run started but is not subscribed to its end — the gap of incident [Y].
+
+Incident: [Y](incidents.md#inc-y) — owner decision 2026-09-24.
+
 ## Merge, git, PR
 
 ### One writing agent per tree `[review: PM @ code stage promotion]`
