@@ -1,6 +1,6 @@
 ---
 name: agent-runtime-gotchas
-description: Runtime workarounds caught on live runs, each with a removal condition. A — the Multica platform (a mention = a run, in_review does not close the barrier, the parent in backlog, rerun after blocked, cancelled does not stop the run, the barrier by statuses, the model only from runtime usage, a skill without versions, the daemon restart, 2>&1 with JSON, never kill multica by name). B — runtimes and providers (Antigravity and the catalog line, the Grok/GLM/DeepSeek limits and peak hours, the Claude refusals on a brief and routing, the npm cache, a fresh dependency in main, infrastructure failures in series). The pipeline regulation is not here but in the pm-workflow repository (docs/).
+description: Runtime workarounds caught on live runs, each with a removal condition. A — the Multica platform (a mention = a run, in_review does not close the barrier, the parent in backlog, rerun after blocked, cancelled does not stop the run, the barrier by statuses, the model only from runtime usage, a skill without versions, the daemon restart, 2>&1 with JSON, never kill multica by name, a sub-issue's wakeups die at done). B — runtimes and providers (Antigravity and the catalog line, the Grok/GLM/DeepSeek limits and peak hours, the Claude refusals on a brief and routing, the npm cache, a fresh dependency in main, infrastructure failures in series). The pipeline regulation is not here but in the pm-workflow repository (docs/).
 ---
 
 Runtime and platform failures caught on live runs. Every item cost a run or a round. Only workarounds live here — the things you will have to remove when the platform or a provider changes; every item has a removal condition. The pipeline regulation (roles, barriers, the score line, the registry, round limits) lives in the `pm-workflow` repository, `docs/`; the PM receives it as the `pm-workflow` skill. You are analyzing someone else's run: assembling a round, standing at a barrier, accepting reports. For an executor inside his own run — `audit-run-hygiene`.
@@ -80,6 +80,15 @@ The source of this file is `pm-workflow/skills/agent-runtime-gotchas/SKILL.md`; 
 - Workaround: at the barrier read the report, not the status; with a dead Reviewer — a separate stage for synthesis only. The procedure — `pm-workflow` `docs/pipeline.md#synthesis-stage`.
 - Incident: E (see `docs/incidents.md#inc-e` in the `pm-workflow` repository), reproduced twice.
 - Removal condition: remove when the barrier can demand a report (for example, a mandatory result comment at `done`); check — a `done` without a comment does not close the barrier.
+
+### The wakeups of a sub-issue are disabled when it goes `done`
+<a id="stage-wakeup-dies-at-done"></a>
+
+- Symptom: the executor's run ends, the sub-issue goes `done`, its `task.completed` wakeup does not fire — the PM learns about the closed barrier only from the hourly backstop or a manual nudge; a barrier stood 40 minutes with the owner watching.
+- Cause: the platform disables the wakeup rules of an issue when it reaches a terminal status, and the executor sets `done` inside its own run — by the time `task.completed` fires, the rule on the sub-issue is already off.
+- Workaround: the primary barrier signal is a condition wakeup on the PARENT — `multica issue wakeup create <parent-id> --until-children-done --stage <N> --kind event --mode continuous --expires-in 24h --on-timeout wake`; the parent stays non-terminal through the whole pipeline, so its wakeup survives the sub-issues' `done`; the 24-hour deadline wake catches a stage that never closes. Set it at every promotion together with the stage-card wakeup; a single daily backstop on the parent is the catastrophe net for a fully lost chain. Regulation — `pm-workflow` `docs/pipeline.md#barrier-wakeup`.
+- Incident: Z (see `docs/incidents.md#inc-z` in the `pm-workflow` repository).
+- Removal condition: remove when Multica stops disabling the wakeup rules of a sub-issue at `done` or fires them before disabling; check — a `task.completed` wakeup on a sub-issue fires after the sub-issue goes `done` inside the same run.
 
 ### The run model is not stored in the task and is undeterminable from inside
 <a id="model-not-in-task"></a>
