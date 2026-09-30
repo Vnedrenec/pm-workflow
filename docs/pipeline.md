@@ -193,9 +193,16 @@ Incident: [Y](incidents.md#inc-y) — owner decision 2026-09-24.
 ### A wakeup on the stage card — set at every promotion `[review: PM @ promotion]`
 <a id="stage-wakeup"></a>
 
-Together with the promotion of any stage the PM sets a continuous event wakeup on the stage sub-issue: `task.completed` and `task.failed` of the executor — every end or failure of the executor's run wakes the PM without waiting for the owner. The wakeup is disabled when the stage barrier closes (`done`/`cancelled` of the sub-issue). A promotion without the wakeup is a defect of the hand-off record (`#handoff-record`): the PM verified that the run started but is not subscribed to its end — the gap of incident [Y].
+Together with the promotion of any stage the PM sets a continuous event wakeup on the stage sub-issue: `task.completed` and `task.failed` of the executor — every end or failure of the executor's run wakes the PM without waiting for the owner. The wakeup is disabled when the stage barrier closes (`done`/`cancelled` of the sub-issue) — at that exact moment the barrier signal passes to the parent-side `children_done` wakeup (`#barrier-wakeup`). A promotion without the wakeup is a defect of the hand-off record (`#handoff-record`): the PM verified that the run started but is not subscribed to its end — the gap of incident [Y].
 
 Incident: [Y](incidents.md#inc-y) — owner decision 2026-09-24.
+
+### A `children_done` wakeup on the parent — the primary barrier signal, set at every promotion `[review: PM @ promotion]`
+<a id="barrier-wakeup"></a>
+
+Together with the promotion of any stage the PM sets a condition wakeup on the parent: `multica issue wakeup create <parent-id> --until-children-done --stage <N> --kind event --mode continuous --expires-in 24h --on-timeout wake` with a self-sufficient barrier instruction — the layout check, the report read, the verdict by `#barrier-procedure`, and the chain rule: the same wakeup for the stage this run promotes. The platform disables the wakeups of a sub-issue when it goes `done`, so the stage-card wakeup (`#stage-wakeup`) dies exactly at the barrier moment; the parent-side `children_done` fires on barrier closure and is the primary barrier signal. The wakeup carries its own deadline: `--expires-in 24h --on-timeout wake` wakes the PM once (`wakeup.timeout` fact) when a stage has not closed in a day — re-check the executor, re-arm the deadline. A promotion without the wakeup is a defect of the hand-off record (`#handoff-record`). A single daily backstop on the parent — verifying the chain, recreating a lost `children_done`, processing an unattended barrier — is the catastrophe net for a fully lost chain, not the primary signal; no periodic polling (owner decision 2026-09-30).
+
+Incident: [Z](incidents.md#inc-z) — owner decision 2026-09-30.
 
 ## Merge, git, PR
 
