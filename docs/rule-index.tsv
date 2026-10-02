@@ -36,7 +36,7 @@ Intent lives in git, state — in the tracker	docs/pipeline.md#intent-in-git
 Parent metadata keys	docs/pipeline.md#metadata-keys
 The score line — the first line of the Reviewer report, checked character by character	docs/review-cycle.md#score-line
 The cycle closes only when two conditions hold at once	docs/review-cycle.md#closure
-The findings registry — a card under the parent	docs/review-cycle.md#registry
+The findings registry — a card under the parent, closed with the parent	docs/review-cycle.md#registry
 Exception codes — exactly three, there are no others	docs/review-cycle.md#exception-codes
 Circuit breaker: three rounds without convergence — stop and the owner	docs/review-cycle.md#fuse
 Zero findings ≠ a clean result on a dead run	docs/review-cycle.md#dead-run-zero

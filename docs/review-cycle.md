@@ -35,10 +35,10 @@ Both hold — the next stage; at least one does not — the cycle is open. The c
 
 Incident: none
 
-### The findings registry — a card under the parent `[review: PM @ round closure]`
+### The findings registry — a card under the parent, closed with the parent `[review: PM @ round closure]`
 <a id="registry"></a>
 
-The registry carrier is a separate registry card in the tracker under the cycle's parent; its id is in the parent metadata, key `findings_registry_issue`. The registry outlives the cycle: it stays in `backlog` under the parent, the key is not removed. Row columns — `review-report.md` ("Findings (registry)").
+The registry carrier is a separate registry card in the tracker under the cycle's parent; its id is in the parent metadata, key `findings_registry_issue`. While the cycle lives, the registry stays in `backlog` under the parent — it is a working document the PM rewrites round to round. When the parent goes to `done` (`ownership.md#parent-done`), the PM closes the registry card in `done` in the same run: a served cycle's registry is an audit record, not backlog cargo. The card stays under the parent and the metadata key is not removed, so the record keeps resolving. Row columns — `review-report.md` ("Findings (registry)").
 
 Incident: none
 

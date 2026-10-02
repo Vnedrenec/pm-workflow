@@ -5,7 +5,7 @@ Layer 2 of the workspace regulation. Rule format — `README.md`; rule address �
 ### `done` on the parent — the owner only `[review: PM @ acceptance]`
 <a id="parent-done"></a>
 
-`done` on the parent is set by the owner. The PM reaches at most `in_review`. Stage sub-issues — the other way around: the executor closes them in `done` (`pipeline.md#barrier-terminal`).
+`done` on the parent is set by the owner. The PM reaches at most `in_review`. Stage sub-issues — the other way around: the executor closes them in `done` (`pipeline.md#barrier-terminal`). On the owner's `done` the PM also closes the cycle's registry card in `done` — a served registry is an audit record, not backlog cargo (`review-cycle.md#registry`).
 
 Incident: none
 
