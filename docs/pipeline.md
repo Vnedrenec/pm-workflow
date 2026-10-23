@@ -1,258 +1,202 @@
 # Pipeline: start, barriers, stages, metadata
 
-Layer 2 of the workspace regulation. Rule format — `README.md`; rule address — `pipeline.md#<anchor>`. Sources of the text: the snapshot of the PM instructions as of 2026-09-18 (in the private archive) and the source-project file `docs/engineering/pm-workflow.md` §2.3–§2.8 (the common part; the project-specific part stayed in the project). The pipeline tracker is Multica: statuses `todo / in_progress / in_review / done / backlog / cancelled / blocked`. The project tracker and its statuses are layer 3, in the project file.
+Rule address — `pipeline.md#<anchor>`. The pipeline tracker is Multica: statuses `todo / in_progress / in_review / done / backlog / cancelled / blocked`. The project tracker and its statuses are layer 3, in the project file.
 
 ## Pipeline start
 
 ### Start order — the parent in `backlog` `[review: PM @ parent creation]`
 <a id="start-order"></a>
 
-A card assigned to an agent in a status other than `backlog` starts a run immediately. The parent is assigned to the PM — created straight in `in_progress`, it raises a second PM run that knows nothing about the sub-issues created right after it and builds its own. The order is strict:
+A card assigned to an agent in a status other than `backlog` starts a run immediately; a parent created straight in `in_progress` raises a second PM run that builds its own sub-issues. Order:
 
-1. The parent — `--status backlog`; no run starts.
-2. Sub-issues: the first stage `todo`, the rest `backlog` (otherwise the whole chain starts at once).
-3. The counter metadata (`#metadata-keys`) and the impact class (`impact-class.md#classify-first`).
-4. Only now `multica issue status <parent-id> in_progress`.
-
-Raising the parent from `backlog` wakes the PM once more — that is normal.
+1. Parent — `--status backlog`.
+2. Sub-issues: first stage `todo`, the rest `backlog`.
+3. Counter metadata (`#metadata-keys`) and impact class (`impact-class.md#classify-first`).
+4. Only now `multica issue status <parent-id> in_progress`. Raising from `backlog` wakes the PM once — expected.
 
 ```bash
 multica issue create --title "..." --parent <id> --assignee <agent> --stage <N> --status todo
 multica issue create --title "..." --parent <id> --assignee <agent> --stage <N+1> --status backlog
 ```
 
-Incident: [B](incidents.md#inc-b) — two identical first stages, both worked for nothing.
-
 ### First action on any wakeup — `multica issue children` `[review: PM @ wakeup]`
 <a id="children-first"></a>
 
-On any wakeup, the first thing is `multica issue children <parent-id>`: the layout first, then the decision. An existing stage is never recreated.
-
-Incident: [B](incidents.md#inc-b).
+On any wakeup, first `multica issue children <parent-id>`: the layout, then the decision. An existing stage is never recreated.
 
 ### First stage of a new repository — bootstrap `[review: PM @ stages creation]`
 <a id="bootstrap"></a>
 
-The first stage of any new repository is a task per the checklist of the `project-bootstrap-checklist` skill (boundary gates with a mutation per rule, coverage thresholds and `skipped` in reports, the required checks contract, a registry of scanner exceptions, a database of its own for every agent, outbox as the first load-bearing block). The code stage is not promoted until bootstrap is closed.
-
-Incident: none
+The first stage of any new repository is a task per the `project-bootstrap-checklist` skill. The code stage is not promoted until bootstrap is closed.
 
 ## Barriers
 
 ### A stage barrier closes only on terminal statuses `[review: PM @ stage barrier]`
 <a id="barrier-terminal"></a>
 
-A stage barrier closes only when ALL its sub-issues are in a terminal status: `done` or `cancelled`. `in_review` is not terminal: the barrier stays open, nobody wakes the PM, the pipeline stands still (workaround — layer 1, `agent-runtime-gotchas#in-review-not-terminal`). Therefore the body of EVERY sub-issue carries the explicit line "on completion set it to `done`: `multica issue status <id> done`; do not leave it `in_review`" — without it the sub-issue is not created. Acceptance does not disappear — it moves from the sub-issue to the barrier: the PM reads the result on wakeup and decides whether it is accepted or another round is needed. `done` on the PARENT is still set only by the owner (`ownership.md#parent-done`).
-
-Incident: [B](incidents.md#inc-b).
+A stage barrier closes only when ALL its sub-issues are `done` or `cancelled`. `in_review` is not terminal: the barrier stays open and nobody wakes the PM (`agent-runtime-gotchas#in-review-not-terminal`). The body of EVERY sub-issue carries the line "on completion set it to `done`: `multica issue status <id> done`; do not leave it `in_review`" — without it the sub-issue is not created. Acceptance moves from the sub-issue to the barrier: the PM reads the result on wakeup and decides. `done` on the PARENT is set only by the owner (`ownership.md#parent-done`).
 
 ### What to do at every barrier `[review: PM @ stage barrier]`
 <a id="barrier-procedure"></a>
 
 1. `multica issue children <parent-id>` — the layout by stages.
-2. Read the report of the stage that closed: not the status but the comment with the result. The barrier triggers on statuses, not on the presence of a report (`agent-runtime-gotchas#barrier-by-status`) — for a missing report with the stage closed see `#synthesis-stage`.
+2. Read the report of the closed stage: the result comment, not the status. The barrier fires on statuses, not on reports (`agent-runtime-gotchas#barrier-by-status`); stage closed without a report — `#synthesis-stage`.
 3. Read the parent metadata (`#metadata-keys`).
-4. Decide: no findings → the next stage; findings and rounds below the class limit → a rework stage, followed by a new review stage; the round limit reached → **stop**, the parent to `blocked`, to the owner — what exactly fails to converge (`review-cycle.md#fuse`, `impact-class.md#limits-table`); a finding changes the scope → stop and a question to the owner regardless of the counter (`ownership.md#scope-change`).
-5. Update the metadata.
+4. Decide: no findings → next stage; findings and rounds below the class limit → a rework stage, then a new review stage; round limit reached → **stop**, parent to `blocked`, to the owner with what fails to converge (`review-cycle.md#fuse`, `impact-class.md#limits-table`); a finding changes the scope → stop and ask the owner regardless of the counter (`ownership.md#scope-change`).
+5. Update the metadata, including `last_barrier_stage` (`#barrier-dedup`).
 6. Promote the next stage: `multica issue status <child-id> todo`.
 
-Before the promotion read the sub-issue description: if its declared dependencies are not met or it contradicts the parent layout — leave it in `backlog` and ask, do not move it on schedule.
+Before promotion read the sub-issue description: declared dependencies unmet or contradiction with the parent layout — leave it in `backlog` and ask.
 
-Incident: none
-
-### The code / mechanics stage barrier — green CI on the PR head `[review: PM @ code stage barrier]`
+### Code / mechanics stage barrier — green CI on the PR head `[review: PM @ code stage barrier]`
 <a id="code-barrier"></a>
 
-The code / mechanics stage closes only on green CI on the PR head. The executor does not set `done` until `gh pr checks <pr>` on the head of his last commit is green as a whole; anything red — paste the output into the report and set the sub-issue to `blocked`. Local runs are for yourself; for the barrier — only CI. The required checks list is a contract in the project repository (layer 3: e.g. `.github/branch-protection.json`, the project `AGENTS.md`); the barrier is bound to it, not to the list in the brief. The PM does not check CI himself — he checks that the executor attached green output for the right head.
+The code / mechanics stage closes only on green CI on the PR head. The executor does not set `done` until `gh pr checks <pr>` on the head of the last commit is green as a whole; anything red — paste the output into the report and set the sub-issue to `blocked`. Local runs are for yourself; for the barrier only CI. The required-checks list is a contract in the project repository (layer 3, e.g. `.github/branch-protection.json`, the project `AGENTS.md`). The PM does not run CI himself — he checks that the executor attached green output for the right head.
 
-Incident: [H](incidents.md#inc-h) — owner decision 2026-09-14.
-
-### The round synthesis stage — separate, when the panel worked and the Reviewer died `[review: PM @ audit stage barrier]`
+### Synthesis stage — the panel worked, the Reviewer died `[review: PM @ audit stage barrier]`
 <a id="synthesis-stage"></a>
 
-The sign at the barrier: the stage is closed, the auditor sub-issues have reports, the Reviewer stage has only "the panel has been sent out": no score line, no registry, no personal reproduction. The cure is a separate stage for synthesis only, with the explicit line "do not repeat the audit, do not send the panel out" and the list of ids of the sub-issues that already worked; otherwise the Reviewer will assemble the panel anew and the workspace will pay for the same work a second time. Merging on "seven findings from three reports" without synthesis is not allowed: those are paragraphs of text, not a verified round — a round is distinguished by stitching along the root cause, personal reproduction of the blocking ones, and the score line (`review-cycle.md#score-line`).
+Sign: the stage is closed, auditor sub-issues have reports, the Reviewer stage has only "the panel has been sent out" — no score line, no registry, no personal reproduction. Cure: a separate stage for synthesis only, with the explicit line "do not repeat the audit, do not send the panel out" and the ids of the sub-issues that already worked; otherwise the Reviewer assembles the panel anew and the work is paid twice. Merging on "seven findings from three reports" without synthesis is not allowed: a round is stitching along the root cause, personal reproduction of the blocking ones, and the score line (`review-cycle.md#score-line`).
 
-Incident: [E](incidents.md#inc-e) — reproduced twice (specification round 3 and code round 1).
-
-### A stage closed through `cancelled` without an explanation is not promoted `[review: PM @ stage barrier]`
+### A stage closed through `cancelled` without a reason is not promoted `[review: PM @ stage barrier]`
 <a id="cancelled-needs-reason"></a>
 
-If the previous stage closed through `cancelled` without an explanation — establish the cause first, promote the next stage second.
+Establish the cause first, promote second.
 
-Incident: none
-
-### Hand-off record for a stage and executor reconciliation `[review: PM @ promotion]`
+### Hand-off record and executor reconciliation `[review: PM @ promotion]`
 <a id="handoff-record"></a>
 
-The PM records every stage hand-off with a comment on the stage card: who decided, why, to whom (template — `handoff-comment.md`). A hand-off without a record is an incident. On every wakeup the PM reconciles the executor of the stage that just closed with who was assigned at the promotion: a divergence (`assignee_changed` not from the PM) is a role incident with an analysis the same day, regardless of the quality of the result.
+The PM records every stage hand-off with a comment on the stage card: who decided, why, to whom (`handoff-comment.md`). A hand-off without a record is an incident. On every wakeup the PM reconciles the executor of the closed stage with who was assigned at promotion: `assignee_changed` not by the PM is a role incident analyzed the same day, regardless of result quality.
 
-Incident: none
-
-### Sequential acceptance: raise the next card only after the owner's `done` `[review: PM @ acceptance]`
+### Sequential acceptance: the next card only after the owner's `done` `[review: PM @ acceptance]`
 <a id="next-card-on-in-review"></a>
 
-Unaccepted parents must not stack (owner decision 2026-09-22, D-11 — rollback of raising the next card on `in_review`). When a parent goes to `in_review`, promote nothing; a run may end with an empty conveyor. `done` is terminal and emits no events, so before ending the run the PM leaves a wakeup on the parent — `multica issue wakeup create <id> --event issue.status_changed --filter-actor-type member --filter-actor-id <owner>` — and the owner's status change wakes the PM. On `done`: if no parent is `in_progress` and the `in_review` queue is empty, promote the next queue card (a ready parent from `backlog` → stage 1 `todo` → parent `in_progress`, verify the run started). On a status other than `done`: act by the acceptance and review-cycle rules, promote nothing.
-
-Incident: [L](incidents.md#inc-l) — the idle that had motivated promoting on `in_review`; the owner's-`done` wakeup removes both the idle and the stacking of unaccepted cards.
+Unaccepted parents do not stack. When a parent goes to `in_review`, promote nothing; a run may end with an empty conveyor. `done` emits no events, so before ending the run the PM leaves a wakeup on the parent — `multica issue wakeup create <id> --event issue.status_changed --filter-actor-type member --filter-actor-id <owner>`. On the owner's `done`: if no parent is `in_progress` and the `in_review` queue is empty, promote the next queue card (ready parent from `backlog` → stage 1 `todo` → parent `in_progress`, verify the run started). On any other status: act by the acceptance and review-cycle rules, promote nothing.
 
 ## Stages and their bodies
 
 ### One review round = one sub-issue `[review: PM @ stage creation]`
 <a id="one-round-one-subtask"></a>
 
-Do not reuse a review task with repeated comments: the stage barrier triggers once, repeated comments will not wake the PM.
-
-Incident: none
+Do not reuse a review task with repeated comments: the stage barrier fires once.
 
 ### Every sub-issue is self-sufficient `[review: PM @ promotion]`
 <a id="self-sufficient-body"></a>
 
-The executor sees neither the chat nor the neighboring cards: the goal, inputs, expected result, readiness criteria — in the body. Last round's findings are carried over AS TEXT, not as a link. The body skeleton is `subtask.md`.
-
-Incident: none
+The executor sees neither the chat nor neighboring cards: goal, inputs, expected result, readiness criteria — in the body. Last round's findings are carried over AS TEXT, not as a link. Skeleton — `subtask.md`.
 
 ### Stage bodies are assembled from templates `[review: PM @ promotion]`
 <a id="body-from-template"></a>
 
-The audit stage body contains `review-report.md` in full after the line "Report format:". The code stage body — the "Easy to break", "Result and acceptance", "Backup executor", "Report", "Completion" blocks from `subtask.md` verbatim (composition — `#code-stage-body`). The specification stage body — the line "Read: `pm-workflow` `docs/roles.md`, `templates/subtask.md`". The PM takes the text from the `references/` of his `pm-workflow` skill, not from memory. The template's required lines are held by `scripts/check-rules.sh`; the script does not see sub-issue bodies — the PM checks them at promotion, and so does the auditor of the next pipeline.
-
-Incident: none
+Audit stage body: `review-report.md` in full after the line "Report format:". Code stage body: the "Easy to break", "Result and acceptance", "Backup executor", "Report", "Completion" blocks from `subtask.md` verbatim (`#code-stage-body`). Specification stage body: the line "Read: `pm-workflow` `docs/roles.md`, `templates/subtask.md`". Take the text from `references/`, not from memory. The PM checks the required lines at promotion; so does the auditor of the next pipeline.
 
 ### The specification goes to audit BEFORE the executor `[review: PM @ stages creation]`
 <a id="spec-audit-first"></a>
 
-The specification audit stage comes before the code stage. An error in the specification multiplies into all the work; an error in the code is caught by review. The specification audit does not replace the code review after the Builder: mutations prove that the written cases know how to fail and stay silent about what the cases do not contain.
+The specification audit stage comes before the code stage. It does not replace the code review after the Builder.
 
-Incident: none
-
-### The round envelope — in the audit stage body BEFORE promotion `[review: PM @ audit stage promotion]`
+### Round envelope — in the audit stage body BEFORE promotion `[review: PM @ audit stage promotion]`
 <a id="audit-envelope"></a>
 
-The number of auditors, the model families, the ESC pool prohibition/permission, the previous round's (agent, question) pair (`review-cycle.md#panel`) are written into the audit stage body before promotion. A stage with a boilerplate or empty body is not promoted.
+The number of auditors, model families, ESC pool prohibition/permission, the previous round's (agent, question) pair (`review-cycle.md#panel`) are written into the audit stage body before promotion. A stage with a boilerplate or empty body is not promoted.
 
-Incident: [J](incidents.md#inc-j) — an auditor assembled two security runs, including the escalation pool, on round 1 of the spec audit.
-
-### A backup executor in the body of every code stage `[review: PM @ code stage promotion]`
+### A backup executor in every code stage body `[review: PM @ code stage promotion]`
 <a id="backup-executor"></a>
 
-The body of every code stage carries a backup executor of another model family and the switch sign: `failure_reason` with a quota in `multica agent tasks <agent-id>`. Check the limit via `multica agent tasks`, do not wait.
-
-Incident: [M](incidents.md#inc-m) — `provider_quota_limit` in the middle of the day, the backup line lived only in the PM's head.
+Every code stage body carries a backup executor of another model family and the switch sign: `failure_reason` with a quota in `multica agent tasks <agent-id>`. Check the limit via `multica agent tasks`, do not wait.
 
 ### Composition of the code stage body `[review: PM @ code stage promotion]`
 <a id="code-stage-body"></a>
 
-The code stage body must contain: the work boundaries; what is easy to break and why; a link to the project machine's run rules (layer 3, e.g. `docs/engineering/pm-workflow.md` §4 in the project repository); the line "verify mutations by running, not by prediction" (`#mutation-by-run`); the subagent prohibition (`#no-subagents`); the report format — the "Report" block from `subtask.md` verbatim (`#builder-report`). A body missing any item is not promoted.
-
-Incident: none
+Must contain: work boundaries; what is easy to break and why; a link to the project machine's run rules (layer 3, e.g. `docs/engineering/pm-workflow.md` §4); the line "verify mutations by running, not by prediction" (`#mutation-by-run`); the subagent prohibition (`#no-subagents`); the "Report" block from `subtask.md` verbatim (`#builder-report`). Missing any item — not promoted.
 
 ### No subagents on the code stage `[review: PM @ code stage barrier]`
 <a id="no-subagents"></a>
 
-The code stage executor does not start subagents and does not send his diff to other models — one run, one agent (the author ≠ verifier principle, `roles.md#author-not-verifier`). The report must carry the line `Subagents: none started`; a report without it or with a line about subagents — the stage is not accepted, `blocked` with a question to the PM.
-
-Incident: none
+The code stage executor starts no subagents and sends his diff to no other model — one run, one agent (`roles.md#author-not-verifier`). The report carries the line `Subagents: none started`; without it or with a line about subagents — not accepted, `blocked` with a question to the PM.
 
 ### Verify mutations by running, not by prediction `[review: Reviewer @ code round]`
 <a id="mutation-by-run"></a>
 
-Every island case (a case protecting one branch) is proven by a mutation: break the line under test → red → revert; the result — by command and output, not by the prediction "it will go red". Do not predict which case will go red: name the invariant and demand proof by running. Techniques — the `test-guard-discipline` skill.
+Every island case (one branch) is proven by a mutation: break the line under test → red → revert; result by command and output, not by prediction. Name the invariant and demand proof by running. Techniques — the `test-guard-discipline` skill.
 
-Incident: [S](incidents.md#inc-s), [O](incidents.md#inc-o).
-
-### The code stage report — five sections `[review: PM @ code stage barrier]`
+### Code stage report — five sections `[review: PM @ code stage barrier]`
 <a id="builder-report"></a>
 
-The first line — `Subagents: none started`. Then five sections, each non-empty: (1) gates — the command verbatim and the passed/failed/`skipped` numbers; `skipped` = 0, otherwise every skip with a reason; (2) island cases — case → mutation → run result; (3) where I decided differently from the specification, and why; (4) promised but not done; (5) own misses — an empty section is suspicious, the PM asks before the promotion. A report missing any section does not pass the barrier.
-
-Incident: [P](incidents.md#inc-p), [Q](incidents.md#inc-q).
+First line `Subagents: none started`. Then five non-empty sections: (1) gates — the command verbatim and passed/failed/`skipped` numbers; `skipped` = 0, otherwise every skip with a reason; (2) island cases — case → mutation → run result; (3) where I decided differently from the specification, and why; (4) promised but not done; (5) own misses — an empty section is suspicious, the PM asks before promotion. Missing a section — does not pass the barrier.
 
 ## Resume and mentions
 
 ### Resuming work — only by mentioning the executor `[review: PM @ resume comment]`
 <a id="resume-by-mention"></a>
 
-A status change is a record, not a command. Moving a card from `blocked` or `in_review` back to `todo`/`in_progress` does not raise a run if the executor did not change: no task is created, the card sits in a working status without work (workaround — `agent-runtime-gotchas#mention-is-run`). Therefore any comment that resumes work — unblocking, an owner decision, sending a round back for rework, any "continue" — must mention the executor `[@Name](mention://agent/<agent-id>)`. The order is strict: (1) a comment with the specification AND the mention; (2) `multica issue status <id> todo`; (3) verify the run started: `multica agent tasks <agent-id> --output json` contains a task with that `issue_id` in `running`/`pending`/`queued`/`claimed`; it did not start — mention again, do not wait. Asking the owner for a decision does not replace mentioning the executor — two addressees, two comments.
+A status change is a record, not a command: moving a card from `blocked` or `in_review` back to `todo`/`in_progress` with the same executor starts no run (`agent-runtime-gotchas#mention-is-run`). Any comment that resumes work — unblocking, an owner decision, rework, "continue" — mentions the executor `[@Name](mention://agent/<agent-id>)`. Order: (1) comment with the specification AND the mention; (2) `multica issue status <id> todo`; (3) verify: `multica agent tasks <agent-id> --output json` has a task with that `issue_id` in `running`/`pending`/`queued`/`claimed`; not started — mention again. Asking the owner does not replace mentioning the executor — two addressees, two comments.
 
-Incident: [G](incidents.md#inc-g) — owner decision 2026-09-08.
-
-### A mention = a new run; mention only when a run is needed `[review: PM @ comment]`
+### A mention = a paid run `[review: PM @ comment]`
 <a id="mention-policy"></a>
 
-`mention://agent/<id>` creates a paid run. Mention when a run is needed (`#resume-by-mention`, a new sub-issue to an agent); a reply, thanks, FYI, a reference to someone else's argument — without a mention link. Special case: do not mention an agent that just finished in your reply — it starts an agent-to-agent loop; silence ends the conversation. The same wording is in the layer 0 runtime brief ("Mentions").
-
-Incident: none
+Mention when a run is needed (`#resume-by-mention`, a new sub-issue). A reply, thanks, FYI, a reference — without the link. Do not mention an agent that just finished in your reply — it starts an agent-to-agent loop; silence ends the conversation.
 
 ### A blocked stage wakes the PM — the report mentions the PM by link `[review: PM @ stage barrier]`
 <a id="blocked-mentions-pm"></a>
 
-An executor who cannot continue sets the sub-issue to `blocked` and posts the report with a `mention://` link to the PM in that same comment: a status change is a record, not a signal, and a question written as plain text wakes nobody (layer 1 `mention-is-run`). A `blocked` report without a PM mention is a defect of the report: the PM raises it at the barrier, and the miss goes into section 5 of the executor's own report. The line lives in the Report block of `templates/subtask.md` (held by required lines).
+An executor who cannot continue sets the sub-issue to `blocked` and posts the report with a `mention://` link to the PM in the same comment; a plain-text question wakes nobody. A `blocked` report without a PM mention is a report defect: the PM raises it at the barrier, the miss goes into section 5 of the executor's report. The line lives in the Report block of `subtask.md`.
 
-Incident: [Y](incidents.md#inc-y) — owner decision 2026-09-24.
-
-### A wakeup on the stage card — set at every promotion `[review: PM @ promotion]`
+### Stage-card wakeup — set at every promotion `[review: PM @ promotion]`
 <a id="stage-wakeup"></a>
 
-Together with the promotion of any stage the PM sets a continuous event wakeup on the stage sub-issue: `task.completed` and `task.failed` of the executor — every end or failure of the executor's run wakes the PM without waiting for the owner. The wakeup is disabled when the stage barrier closes (`done`/`cancelled` of the sub-issue) — at that exact moment the barrier signal passes to the parent-side `children_done` wakeup (`#barrier-wakeup`). A promotion without the wakeup is a defect of the hand-off record (`#handoff-record`): the PM verified that the run started but is not subscribed to its end — the gap of incident [Y].
+With every promotion the PM sets a continuous event wakeup on the stage sub-issue for `task.completed` and `task.failed` of the executor. It is disabled when the sub-issue reaches `done`/`cancelled`; at that moment the signal passes to the parent-side `children_done` wakeup (`#barrier-wakeup`). A promotion without it is a hand-off record defect (`#handoff-record`).
 
-Incident: [Y](incidents.md#inc-y) — owner decision 2026-09-24.
-
-### A `children_done` wakeup on the parent — the primary barrier signal, set at every promotion `[review: PM @ promotion]`
+### `children_done` wakeup on the parent — the primary barrier signal, one-shot `[review: PM @ promotion]`
 <a id="barrier-wakeup"></a>
 
-Together with the promotion of any stage the PM sets a condition wakeup on the parent: `multica issue wakeup create <parent-id> --until-children-done --stage <N> --kind event --mode continuous --expires-in 24h --on-timeout wake` with a self-sufficient barrier instruction — the layout check, the report read, the verdict by `#barrier-procedure`, and the chain rule: the same wakeup for the stage this run promotes. The platform disables the wakeups of a sub-issue when it goes `done`, so the stage-card wakeup (`#stage-wakeup`) dies exactly at the barrier moment; the parent-side `children_done` fires on barrier closure and is the primary barrier signal. The wakeup carries its own deadline: `--expires-in 24h --on-timeout wake` wakes the PM once (`wakeup.timeout` fact) when a stage has not closed in a day — re-check the executor, re-arm the deadline. A promotion without the wakeup is a defect of the hand-off record (`#handoff-record`). A single daily backstop on the parent — verifying the chain, recreating a lost `children_done`, processing an unattended barrier — is the catastrophe net for a fully lost chain, not the primary signal; no periodic polling (owner decision 2026-09-30).
+With every promotion the PM sets `multica issue wakeup create <parent-id> --until-children-done --stage <N> --kind event --mode once --expires-in 24h --on-timeout wake` with a self-sufficient barrier instruction: layout check, report read, verdict by `#barrier-procedure`, and the chain rule — the same wakeup for the stage this run promotes. A stage barrier closes once, so the wakeup is one-shot: `--mode once` fires on closure and ends the rule; a sub-issue added later to the next stage cannot re-fire it. `--mode continuous` with an explicit `--max-fires` only when the PM plans to add sub-issues to the SAME stage after promotion, reason in the hand-off record. The platform disables sub-issue wakeups at `done`, so the parent-side wakeup is the primary signal. `--expires-in 24h --on-timeout wake` wakes the PM once (`wakeup.timeout`) when a stage has not closed in a day — re-check the executor, re-arm with a new one-shot wakeup. A promotion without it is a hand-off record defect. A single daily backstop on the parent (verify the chain, recreate a lost `children_done`, process an unattended barrier) is the catastrophe net, not the primary signal; no periodic polling. A real executor failure reaches the PM through the stage-card `task.failed` wakeup (`#stage-wakeup`), not through the barrier wakeup.
 
-Incident: [Z](incidents.md#inc-z) — owner decision 2026-09-30.
+### A barrier already processed is a no-op wake; the system signal stays on `[review: PM @ wakeup]`
+<a id="barrier-dedup"></a>
+
+One barrier reaches the PM from two sources: the explicit `children_done` wakeup (`#barrier-wakeup`) and the platform's own child-completion notification, which the PM does not own and does not disable through the CLI. The one-shot explicit wakeup removes repeats of the explicit source only. Until the platform deduplicates the two, the PM makes the repeat cheap: at the barrier the last write of the run (`#barrier-procedure`, step 5) puts `last_barrier_stage` — the number of the stage whose barrier was processed — into the parent metadata. On any wake, after `#children-first`: if no stage above `last_barrier_stage` is terminal, the next stage is already promoted and no sub-issue changed status since — the wake is a repeat: one short reply ("barrier N already processed"), nothing created, promoted or re-read. A terminal stage above `last_barrier_stage`, a `wakeup.timeout` fact or a `task.failed` fact is a real event and goes through `#barrier-procedure`. Dropping either source is an owner decision taken only after measured pipelines show the remaining source never lost a barrier.
+
+### A wake with a server-side unchanged/delta report — read only the delta `[review: PM @ wakeup]`
+<a id="compact-wake-read"></a>
+
+When the per-turn message reports that the server compared the issue against the last run (unchanged) or hands the comment delta as one `--since <anchor>` read, that report replaces the full issue read and the full comment scan: do not re-read the issue, the whole comment history, or reports already processed at an earlier barrier (`last_barrier_stage`). Reads stay bounded: `--compact`, `--roots-only --summary`, `--thread <id> --tail N`, `--since`; parent metadata is read from the issue record, not reconstructed from comments. What the server did NOT check is still read: `#children-first` always runs, and the report of a stage that just closed is read in full (`#barrier-procedure`, step 2). Without a server report the normal scan applies.
 
 ## Merge, git, PR
 
 ### One writing agent per tree `[review: PM @ code stage promotion]`
 <a id="one-writer"></a>
 
-A separate worktree per executor, a branch off a fresh `origin/main`. Parallel writers in one tree produce false gate redness and edits in files they never touched. A second branch — `git worktree` into a session directory, not `git switch` in a shared tree: switching drags away someone else's HEAD. Do not rewrite someone else's branch history.
-
-Incident: [R](incidents.md#inc-r) — someone else's uncommitted migration was almost carried away.
+A separate worktree per executor, a branch off fresh `origin/main`. A second branch — `git worktree` into a session directory, not `git switch` in a shared tree: switching drags away someone else's HEAD. Do not rewrite someone else's branch history.
 
 ### Merge and report `[review: PM @ code stage barrier]`
 <a id="merge-and-report"></a>
 
-A PR with the specification in the body; after the green gate — squash. The comment to the card is written from the fact of a run: the commit, the PR number, the gate numbers, what the review rounds found, what the machine does not check. "It should work" is not a report. The project tracker statuses after the merge — layer 3.
-
-Incident: none
+A PR with the specification in the body; after the green gate — squash. The card comment is written from the fact of a run: commit, PR number, gate numbers, what the review rounds found, what the machine does not check. "It should work" is not a report. Project tracker statuses after merge — layer 3.
 
 ### The specification rides in the commit `[review: PM @ code stage barrier]`
 <a id="spec-in-commit"></a>
 
-The specification lands in the same commit as the code: otherwise an external reviewer reads the code without the brief. Before acceptance check `git ls-files`, do not trust the executor's word: document edits in a shared tree after the commit to the branch are lost.
-
-Incident: [X](incidents.md#inc-x).
+The specification lands in the same commit as the code. Before acceptance check `git ls-files`; document edits in a shared tree after the commit are lost.
 
 ### PR ↔ card link — the slug in the PR title; the card before the title `[review: PM @ code stage barrier]`
 <a id="pr-slug"></a>
 
-A PR is linked to a task in exactly one way: the card slug in the PR TITLE. The title becomes the subject of the squash commit and survives the merge; the PR body is not preserved at squash, a trailer in it gives no link. The slug is created by the card BEFORE the PR title: an invented number the tracker's auto-numbering will hand to someone else's work; when creating the task, give the executor the real slug.
+The card slug in the PR TITLE is the only link: the title becomes the squash commit subject; the body is not preserved. Create the card BEFORE the PR title — an invented number goes to someone else's work; give the executor the real slug.
 
-Incident: [U](incidents.md#inc-u), [V](incidents.md#inc-v).
-
-### The card comment — the same action as the owner report `[review: PM @ acceptance comment]`
+### Card comment — the same action as the owner report `[review: PM @ acceptance comment]`
 <a id="comment-with-report"></a>
 
-Otherwise the task hangs in `in_review` for a day after the merge.
+Otherwise the task hangs in `in_review` after the merge.
 
-Incident: [W](incidents.md#inc-w).
-
-### Intent lives in git, state — in the tracker `[review: PM @ card creation]`
+### Intent lives in git, state in the tracker `[review: PM @ card creation]`
 <a id="intent-in-git"></a>
 
-Plans, ADRs, checklists — as files in the repository: executors without tracker access read them. The exception — the round's findings registry: its carrier is a separate registry card in the tracker, because the registry must be overwritten and its id sits in the parent metadata (`findings_registry_issue`, `review-cycle.md#registry`). Status, executor, order — only in the tracker: this class of facts rots in files, and stale files have already caused nonexistent work to be planned twice. Source — the source project's `AGENTS.md`, "Intent lives in git" (the old tracker card does not resolve).
-
-Incident: none
+Plans, ADRs, checklists — files in the repository: executors without tracker access read them. Exception — the findings registry: a separate registry card in the tracker, overwritten round to round, id in the parent metadata (`findings_registry_issue`, `review-cycle.md#registry`). Status, executor, order — only in the tracker; this class of facts rots in files.
 
 ## Parent metadata
 
 ### Parent metadata keys `[review: PM @ stage barrier]`
 <a id="metadata-keys"></a>
 
-The PM wakes at the barrier with no memory of past rounds: the parent metadata is read first and written last. Keys: `impact_class` — the impact class (`impact-class.md#classify-first`); `review_rounds_spec` — the number of closed specification review rounds (`Stage: arch` counts as a specification round); `review_rounds_code` — the same for code; `last_round_findings` — how many confirmed findings the last round produced; `converging` — `true` if the number of findings falls from round to round; `findings_registry_issue` — the registry card id; `owner_decision` — the id of the comment with the owner decision; `repo` — the card's repository. Without these keys there is nothing to count the round limit from.
-
-Incident: none
+The PM wakes at the barrier with no memory of past rounds: metadata is read first and written last. Keys: `last_barrier_stage` — the last stage whose barrier the PM processed (`#barrier-dedup`); `impact_class`; `review_rounds_spec` — closed specification review rounds (`Stage: arch` counts); `review_rounds_code`; `last_round_findings` — confirmed findings of the last round; `converging` — `true` if findings fall round to round; `findings_registry_issue` — registry card id; `owner_decision` — id of the owner decision comment; `repo` — the card's repository.

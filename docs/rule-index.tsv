@@ -26,7 +26,9 @@ Resuming work — only by mentioning the executor	docs/pipeline.md#resume-by-men
 A mention = a new run; mention only when a run is needed	docs/pipeline.md#mention-policy
 A blocked stage wakes the PM — the report mentions the PM by link	docs/pipeline.md#blocked-mentions-pm
 A wakeup on the stage card — set at every promotion	docs/pipeline.md#stage-wakeup
-A children_done wakeup on the parent — the primary barrier signal	docs/pipeline.md#barrier-wakeup
+A children_done wakeup on the parent — the primary barrier signal, one-shot	docs/pipeline.md#barrier-wakeup
+A barrier already processed is a no-op wake; the system signal stays on	docs/pipeline.md#barrier-dedup
+A wake with a server-side unchanged/delta report — read only the delta	docs/pipeline.md#compact-wake-read
 One writing agent per tree	docs/pipeline.md#one-writer
 Merge and report	docs/pipeline.md#merge-and-report
 The specification rides in the commit	docs/pipeline.md#spec-in-commit
@@ -62,7 +64,6 @@ Owner report: result, cost, question	docs/ownership.md#owner-report
 layer 1: A status change does not raise a run; only a mention does	skills/agent-runtime-gotchas/SKILL.md#mention-is-run
 layer 1: `in_review` does not close the stage barrier	skills/agent-runtime-gotchas/SKILL.md#in-review-not-terminal
 layer 1: A parent created not in `backlog` starts a second PM run	skills/agent-runtime-gotchas/SKILL.md#parent-backlog-first
-layer 1: The "→ done" line in the sub-issue body	skills/agent-runtime-gotchas/SKILL.md#done-line-in-body
 layer 1: `done` is terminal and emits no events	skills/agent-runtime-gotchas/SKILL.md#done-is-silent
 layer 1: After `blocked` neither `todo` nor `backlog → todo` creates a task	skills/agent-runtime-gotchas/SKILL.md#rerun-after-promote
 layer 1: `cancelled` and unassigning the executor do not stop the run	skills/agent-runtime-gotchas/SKILL.md#cancel-does-not-stop

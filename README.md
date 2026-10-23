@@ -15,26 +15,20 @@ Dependencies go only top-down: layer 2 does not override layer 0. The text for w
 
 ## Rule format
 
-One rule is one `###` heading with a holder label at the end, one anchor `<a id="…">`, an `Incident:` line:
+One rule is one `###` heading with a holder label at the end and one anchor `<a id="…">`. The body is the rule itself: who does what and when, what counts as a violation. No incident lines, no decision dates, no narrative — the history of a rule lives in `CHANGELOG.md` and `docs/incidents.md`, not in the text an agent reads on every run.
 
 ```markdown
 ### <Rule name> `[review: PM @ stage barrier]`
 <a id="code-barrier"></a>
 
 <Text: who does what and when; what counts as a violation.>
-
-Incident: [H](incidents.md#inc-h) — owner decision 2026-09-14.
 ```
 
-The label is one of two: `[CI: check]` (held by `scripts/check-rules.sh` in the `check` job) or `[review: <role> @ <point>]`, role ∈ {PM, Reviewer, Architect, Owner}. There is no third; a rule without a holder does not exist. The label changes in the same PR as the check. A rule address is `<file>#<anchor>`; there are no through numbers; the index is `docs/rule-index.tsv`. The layer 1 item format (five lines: Symptom / Cause / Workaround / Incident / Removal condition) is in `skills/agent-runtime-gotchas/SKILL.md` itself.
-
-## Rule without an incident — revision candidate
-
-The line `Incident: none` is allowed, but such a rule is a revision candidate (list: `bash scripts/check-rules.sh --list-no-incident`; once a quarter the autopilot raises it, `docs/autopilots/rules-without-incident.md`). Only rules that are not used are removed, and only in agreement with the owner — with a `CHANGELOG.md` entry. Owner decision 2026-09-18 (D-8).
+The label is one of two: `[CI: check]` (held by `scripts/check-rules.sh` in the `check` job) or `[review: <role> @ <point>]`, role ∈ {PM, Reviewer, Architect, Owner}. There is no third; a rule without a holder does not exist. The label changes in the same PR as the check. A rule address is `<file>#<anchor>`; there are no through numbers; the index is `docs/rule-index.tsv`. The layer 1 item format (a `### \`<slug>\` — <title>` heading, one anchor, then the workaround itself) is in `skills/agent-runtime-gotchas/SKILL.md`.
 
 ## How to reference an incident
 
-`docs/incidents.md` is the public resolver: anchor `inc-<letter>` → letter → symptom → consequence → rules. From `docs/*.md` — `incidents.md#inc-b`; from `README.md`/`CHANGELOG.md` — `docs/incidents.md#inc-b`; from a skill — as text `docs/incidents.md#inc-b`. The public tree has no tracker card identifiers, comments, people, or projects — the guard holds that (`scripts/check-rules.sh`, the "stop words" criterion). The mapping of a letter to a card, date, and primary record, and of an owner-decision reference `D-N` to a card and comment, is kept in the private workspace registry (`pm-workflow/incidents-private.md` there), outside this repository.
+`docs/incidents.md` is the public resolver: anchor `inc-<letter>` → letter → symptom → consequence → rules. It is referenced from `CHANGELOG.md` (`docs/incidents.md#inc-b`) and read by people; rule files and skills do not reference it and it is not shipped in the skill. The public tree has no tracker card identifiers, comments, people, or projects — the guard holds that (`scripts/check-rules.sh`, the "stop words" criterion). The mapping of a letter to a card, date, and primary record, and of an owner-decision reference `D-N` to a card and comment, is kept in the private workspace registry (`pm-workflow/incidents-private.md` there), outside this repository.
 
 A new incident is a new letter (the next in the alphabet; after `Z` — `AA`) and two lines: the public one here (symptom · consequence · rules, no stop words) and the private one in the registry (card, date, primary record). A new owner decision is a new `D-N`: publicly the date and number in `CHANGELOG.md`, privately the card and comment. A new name (project, agent, person, repository) — a line into the private stop-word dictionary and an update of the `STOP_WORDS_PRIVATE` secret (see "How to edit").
 
@@ -48,4 +42,4 @@ A new incident is a new letter (the next in the alphabet; after `Z` — `AA`) an
 
 ## Tree
 
-`docs/` — layer 2 rules, `docs/incidents.md`, `docs/rule-index.tsv`, `docs/required-checks.md` (the required checks contract for branch protection of `main`), `docs/adr/`, `docs/autopilots/`, `docs/superpowers/plans/`; `templates/subtask.md`, `templates/review-report.md`, `templates/handoff-comment.md`; `skills/agent-runtime-gotchas/`, `skills/pm-workflow/` (+ `references/`); `scripts/check-rules.sh`, `scripts/build-skills.sh`, `scripts/parse-score-line.sh`, `scripts/stop-words.txt`, `scripts/stop-words-allow.txt`, `scripts/required-lines/subtask.txt`, `scripts/fixtures/score-line/`; `.github/workflows/check.yml`; `CHANGELOG.md`.
+`docs/` — layer 2 rules, `docs/incidents.md`, `docs/rule-index.tsv`, `docs/required-checks.md` (the required checks contract for branch protection of `main`), `docs/adr/`, `docs/autopilots/refresh-skills.md`, `docs/superpowers/plans/`; `templates/subtask.md`, `templates/review-report.md`, `templates/handoff-comment.md`; `skills/agent-runtime-gotchas/`, `skills/pm-workflow/` (+ `references/`); `scripts/check-rules.sh`, `scripts/build-skills.sh`, `scripts/parse-score-line.sh`, `scripts/stop-words.txt`, `scripts/stop-words-allow.txt`, `scripts/required-lines/subtask.txt`, `scripts/fixtures/score-line/`; `.github/workflows/check.yml`; `CHANGELOG.md`.

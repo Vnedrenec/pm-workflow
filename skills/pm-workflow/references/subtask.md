@@ -1,4 +1,4 @@
-<!-- Sub-issue body template. Blocks marked "code stage / audit stage only" are pasted into that stage's body VERBATIM (pipeline.md#body-from-template). Required lines are held by scripts/check-rules.sh against the list scripts/required-lines/subtask.txt. -->
+<!-- Sub-issue body template. Blocks marked "code stage / audit stage only" are pasted into that stage's body VERBATIM (pipeline.md#body-from-template). -->
 
 ## Pipeline
 Impact class: `<impact_class>` · Parent: <KEY-N> · Stage: <N> · PR slug: `<KEY-N>`
@@ -45,4 +45,4 @@ Auditors: <N> · Families: <…> · ESC pool: forbidden/allowed · Previous roun
 
 ## Completion
 On completion set this sub-issue to `done`: `multica issue status <id> done`. Do NOT leave it `in_review` — the stage will not close.
-<!-- layer 1: agent-runtime-gotchas#done-line-in-body -->
+<!-- agent-runtime-gotchas#in-review-not-terminal -->
