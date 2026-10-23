@@ -356,6 +356,21 @@ fi
 bad=$(grep -n '\.\./' docs/roles.md docs/pipeline.md docs/review-cycle.md docs/impact-class.md docs/ownership.md docs/incidents.md 2>/dev/null || true)
 [[ -n "$bad" ]] && fail "'../' links in docs (break in references/):"$'\n'"$bad"
 
+# ---------------------------------------------------------------- 22. the barrier wakeup example is one-shot with a deadline
+# every `multica issue wakeup create ... --until-children-done ...` command in the rule files and the layer 1 skill
+# carries `--mode once`, `--expires-in` and `--on-timeout wake` (pipeline.md#barrier-wakeup)
+bw_n=0
+while IFS= read -r hit; do
+  [[ -z "$hit" ]] && continue
+  bw_n=$((bw_n + 1))
+  cmd=$(printf '%s\n' "$hit" | grep -oE 'multica issue wakeup create [^`]*--until-children-done[^`]*' | head -n 1 || true)
+  for need in '--mode once' '--expires-in ' '--on-timeout wake'; do
+    case "$cmd" in *"$need"*) ;; *) fail "barrier wakeup without '$need': ${hit%%:*}:$(printf '%s' "$hit" | cut -d: -f2)";; esac
+  done
+done < <(grep -nE 'multica issue wakeup create [^`]*--until-children-done' $RULE_FILES "$GOTCHAS" 2>/dev/null || true)
+(( bw_n > 0 )) || fail "no barrier wakeup example (--until-children-done) in the rule files or $GOTCHAS"
+echo "barrier wakeup examples checked: $bw_n"
+
 # ---------------------------------------------------------------- total
 if (( errors > 0 )); then
   echo "check-rules: $errors error(s)"

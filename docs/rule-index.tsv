@@ -26,7 +26,9 @@ Resuming work — only by mentioning the executor	docs/pipeline.md#resume-by-men
 A mention = a new run; mention only when a run is needed	docs/pipeline.md#mention-policy
 A blocked stage wakes the PM — the report mentions the PM by link	docs/pipeline.md#blocked-mentions-pm
 A wakeup on the stage card — set at every promotion	docs/pipeline.md#stage-wakeup
-A children_done wakeup on the parent — the primary barrier signal	docs/pipeline.md#barrier-wakeup
+A children_done wakeup on the parent — the primary barrier signal, one-shot	docs/pipeline.md#barrier-wakeup
+A barrier already processed is a no-op wake; the system signal stays on	docs/pipeline.md#barrier-dedup
+A wake with a server-side unchanged/delta report — read only the delta	docs/pipeline.md#compact-wake-read
 One writing agent per tree	docs/pipeline.md#one-writer
 Merge and report	docs/pipeline.md#merge-and-report
 The specification rides in the commit	docs/pipeline.md#spec-in-commit

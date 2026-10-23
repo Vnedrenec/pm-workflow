@@ -1,6 +1,6 @@
 ---
 name: agent-runtime-gotchas
-description: Multica platform and provider workarounds for anyone assembling a round, standing at a barrier or reading someone else's run. Load when a card did not start, a barrier did not close, a run died, the model is in doubt, or a provider errored.
+description: Multica platform and provider workarounds for anyone assembling a round, standing at a barrier or reading someone else's run. Load when a card did not start, a barrier did not close, a run died, a barrier woke the PM twice, the model is in doubt, or a provider errored.
 ---
 
 Workarounds only. Regulation (roles, barriers, score line, registry, round limits) is in the `pm-workflow` repository, `docs/`. For an executor inside its own run see `audit-run-hygiene`.
@@ -40,7 +40,12 @@ Workarounds only. Regulation (roles, barriers, score line, registry, round limit
 ### `stage-wakeup-dies-at-done` — a sub-issue's wakeups are disabled at `done`
 <a id="stage-wakeup-dies-at-done"></a>
 - The executor sets `done` inside its own run, so `task.completed` on the sub-issue never fires.
-- Primary barrier signal is a wakeup on the PARENT: `multica issue wakeup create <parent-id> --until-children-done --stage <N> --kind event --mode continuous --expires-in 24h --on-timeout wake`. Set it at every promotion. Keep one daily backstop on the parent.
+- Primary barrier signal is a wakeup on the PARENT: `multica issue wakeup create <parent-id> --until-children-done --stage <N> --kind event --mode once --expires-in 24h --on-timeout wake` (one-shot: a barrier closes once). Set it at every promotion. Keep one daily backstop on the parent.
+
+### `system-child-done-duplicate` — the platform's child-completion notification duplicates the explicit barrier wakeup
+<a id="system-child-done-duplicate"></a>
+- After the PM creates or promotes the next stage, the system notification wakes the PM again for the barrier already processed. Cause not established; hypothesis — its deduplication key lacks parent + stage + completion generation.
+- Do not disable the system rule through the CLI (the owner manages it). Use a one-shot explicit wakeup (`--mode once`) and make the repeat cheap: the `last_barrier_stage` metadata check and the delta-only read (`pm-workflow` `docs/pipeline.md#barrier-dedup`, `#compact-wake-read`).
 
 ### `model-not-in-task` — the run model is not stored and not self-reportable
 <a id="model-not-in-task"></a>
