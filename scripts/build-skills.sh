@@ -17,7 +17,6 @@ PAIRS=(
   "docs/review-cycle.md:review-cycle.md"
   "docs/impact-class.md:impact-class.md"
   "docs/ownership.md:ownership.md"
-  "docs/incidents.md:incidents.md"
   "templates/subtask.md:subtask.md"
   "templates/review-report.md:review-report.md"
   "templates/handoff-comment.md:handoff-comment.md"

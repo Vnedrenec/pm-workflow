@@ -4,7 +4,6 @@
 # specification (docs/superpowers/plans/2026-09-18-sanitize-pm-workflow.md §6.5). Rule label: [CI: check].
 #
 #   bash scripts/check-rules.sh                    # all checks; exit code 1 on any error
-#   bash scripts/check-rules.sh --list-no-incident # prints rules with the line "Incident: none"
 #   bash scripts/check-rules.sh --show             # the guard prints matched fragments (local only)
 #   bash scripts/check-rules.sh --history          # the guard only, over the whole git history (a separate CI step)
 #
@@ -32,18 +31,6 @@ errors=0
 fail() { echo "FAIL: $*"; errors=$((errors + 1)); }
 
 MODE="${1:-}"
-
-# ---------------------------------------------------------------- --list-no-incident
-if [[ "$MODE" == "--list-no-incident" ]]; then
-  for f in $RULE_FILES; do
-    awk -v file="$f" '
-      /^### / { title=$0; sub(/^### /, "", title); anchor="" }
-      /<a id="/ { match($0, /id="[^"]+"/); anchor=substr($0, RSTART+4, RLENGTH-5) }
-      /^Incident: none/ { printf "%s#%s · %s\n", file, anchor, title }
-    ' "$f"
-  done
-  exit 0
-fi
 
 # ---------------------------------------------------------------- 4. stop words (the guard)
 # Public structural patterns + a private literal list; any match is a FAIL with the coordinates
@@ -212,22 +199,19 @@ for f in $RULE_FILES; do
   if [[ -n "$bad" ]]; then fail "label missing on rule heading in $f:"$'\n'"$bad"; fi
 done
 
-# ---------------------------------------------------------------- 3. an "Incident:" line on every rule
+# ---------------------------------------------------------------- 3. one anchor per rule, no "Incident:" lines (history lives in docs/incidents.md and CHANGELOG.md)
 for f in $RULE_FILES; do
   [[ -f "$f" ]] || continue
   out=$(awk -v file="$f" '
     function flush() {
       if (title != "") {
-        if (cnt != 1) printf "%s: rule \"%s\" has %d lines \"Incident:\", expected 1\n", file, title, cnt
+        if (cnt != 0) printf "%s: rule \"%s\" has %d lines \"Incident:\", expected 0\n", file, title, cnt
         if (anchors != 1) printf "%s: rule \"%s\" has %d anchors <a id>, expected 1\n", file, title, anchors
       }
     }
     /^### / { flush(); title=$0; sub(/^### /, "", title); cnt=0; anchors=0; next }
     /<a id="/ { anchors++ }
-    /^Incident: / {
-      cnt++
-      if ($0 !~ /^Incident: none$/ && $0 !~ /incidents\.md#[a-z0-9-]+/) printf "%s: rule \"%s\" incident line malformed: %s\n", file, title, $0
-    }
+    /^Incident: / { cnt++ }
     END { flush() }
   ' "$f")
   [[ -n "$out" ]] && fail "$out"
@@ -245,35 +229,22 @@ out=$(awk -F'|' '/^\| <a id="/ { for (c = 3; c <= 6; c++) { v = $c; gsub(/^[ \t]
 [[ -n "$out" ]] && fail "resolver rows with empty cells:"$'\n'"$out"
 echo "incident rows in resolver: $nrows"
 
-# ---------------------------------------------------------------- 6. five lines on the section A items of the skill; a removal date in B
+# ---------------------------------------------------------------- 6. section A items of the skill: a slug heading and one anchor each
 if [[ ! -f "$GOTCHAS" ]]; then
   fail "$GOTCHAS missing"
 else
   out=$(awk '
     function flush() {
       if (section == "A" && title != "") {
-        if (s != 1) printf "A/%s: \"- Symptom:\" lines = %d\n", title, s
-        if (c != 1) printf "A/%s: \"- Cause:\" lines = %d\n", title, c
-        if (o != 1) printf "A/%s: \"- Workaround:\" lines = %d\n", title, o
-        if (i != 1) printf "A/%s: \"- Incident:\" lines = %d\n", title, i
-        if (u != 1) printf "A/%s: \"- Removal condition:\" lines = %d\n", title, u
+        if (title !~ /^`[a-z0-9-]+` — /) printf "A/%s: heading is not \"### `<slug>` — <title>\"\n", title
         if (an != 1) printf "A/%s: anchors = %d\n", title, an
-      }
-      if (section == "B" && title != "") {
-        if (u < 1) printf "B/%s: no \"- Removal condition:\" line\n", title
-        else if (!udate) printf "B/%s: \"- Removal condition:\" without YYYY-MM-DD date\n", title
       }
     }
     /^## A\./ { flush(); section="A"; title=""; next }
     /^## B\./ { flush(); section="B"; title=""; next }
     /^## /    { flush(); section="other"; title=""; next }
-    /^### /   { flush(); title=$0; sub(/^### /, "", title); s=c=o=i=u=an=udate=0; next }
+    /^### /   { flush(); title=$0; sub(/^### /, "", title); an=0; next }
     /<a id="/ { an++ }
-    /^- Symptom:/ { s++ }
-    /^- Cause:/ { c++ }
-    /^- Workaround:/ { o++ }
-    /^- Incident:/ { i++ }
-    /^- Removal condition:/ { u++; if ($0 ~ /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) udate=1 }
     END { flush() }
   ' "$GOTCHAS")
   [[ -n "$out" ]] && fail "skill agent-runtime-gotchas structure:"$'\n'"$out"
