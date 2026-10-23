@@ -8,7 +8,7 @@ Read the pipeline regulation from here, not from memory. `references/` is a copy
 | Situation | Read |
 |---|---|
 | New parent card: class, start order, metadata | `references/impact-class.md` (`#classify-first`), `references/pipeline.md` (`#start-order`, `#metadata-keys`) |
-| Any wakeup | `references/pipeline.md#children-first`, then `#barrier-procedure` |
+| Any wakeup | `references/pipeline.md#children-first`, `#compact-wake-read`, `#barrier-dedup`, then `#barrier-procedure` |
 | Creating a stage: roles, who the executor is, conflict of interest | `references/roles.md` |
 | Sub-issue body (any stage) | `references/subtask.md` — paste the blocks verbatim (`references/pipeline.md#body-from-template`, `#self-sufficient-body`) |
 | Code stage body | `references/pipeline.md`: `#code-stage-body`, `#no-subagents`, `#mutation-by-run`, `#builder-report`, `#backup-executor`, `#one-writer` |

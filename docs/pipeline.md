@@ -53,7 +53,7 @@ Incident: [B](incidents.md#inc-b).
 2. Read the report of the stage that closed: not the status but the comment with the result. The barrier triggers on statuses, not on the presence of a report (`agent-runtime-gotchas#barrier-by-status`) — for a missing report with the stage closed see `#synthesis-stage`.
 3. Read the parent metadata (`#metadata-keys`).
 4. Decide: no findings → the next stage; findings and rounds below the class limit → a rework stage, followed by a new review stage; the round limit reached → **stop**, the parent to `blocked`, to the owner — what exactly fails to converge (`review-cycle.md#fuse`, `impact-class.md#limits-table`); a finding changes the scope → stop and a question to the owner regardless of the counter (`ownership.md#scope-change`).
-5. Update the metadata.
+5. Update the metadata, including `last_barrier_stage` (`#barrier-dedup`).
 6. Promote the next stage: `multica issue status <child-id> todo`.
 
 Before the promotion read the sub-issue description: if its declared dependencies are not met or it contradicts the parent layout — leave it in `backlog` and ask, do not move it on schedule.
@@ -197,12 +197,26 @@ Together with the promotion of any stage the PM sets a continuous event wakeup o
 
 Incident: [Y](incidents.md#inc-y) — owner decision 2026-09-24.
 
-### A `children_done` wakeup on the parent — the primary barrier signal, set at every promotion `[review: PM @ promotion]`
+### A `children_done` wakeup on the parent — the primary barrier signal, one-shot, set at every promotion `[review: PM @ promotion]`
 <a id="barrier-wakeup"></a>
 
-Together with the promotion of any stage the PM sets a condition wakeup on the parent: `multica issue wakeup create <parent-id> --until-children-done --stage <N> --kind event --mode continuous --expires-in 24h --on-timeout wake` with a self-sufficient barrier instruction — the layout check, the report read, the verdict by `#barrier-procedure`, and the chain rule: the same wakeup for the stage this run promotes. The platform disables the wakeups of a sub-issue when it goes `done`, so the stage-card wakeup (`#stage-wakeup`) dies exactly at the barrier moment; the parent-side `children_done` fires on barrier closure and is the primary barrier signal. The wakeup carries its own deadline: `--expires-in 24h --on-timeout wake` wakes the PM once (`wakeup.timeout` fact) when a stage has not closed in a day — re-check the executor, re-arm the deadline. A promotion without the wakeup is a defect of the hand-off record (`#handoff-record`). A single daily backstop on the parent — verifying the chain, recreating a lost `children_done`, processing an unattended barrier — is the catastrophe net for a fully lost chain, not the primary signal; no periodic polling (owner decision 2026-09-30).
+Together with the promotion of any stage the PM sets a condition wakeup on the parent: `multica issue wakeup create <parent-id> --until-children-done --stage <N> --kind event --mode once --expires-in 24h --on-timeout wake` with a self-sufficient barrier instruction — the layout check, the report read, the verdict by `#barrier-procedure`, and the chain rule: the same wakeup for the stage this run promotes. A stage barrier closes once, so its wakeup is one-shot: `--mode once` fires on the barrier closure and ends the rule, a later sub-issue added to the next stage cannot re-fire it. `--mode continuous` (with an explicit `--max-fires`) is allowed only when the PM plans to add sub-issues to the SAME stage after the promotion, and the reason goes into the hand-off record. The platform disables the wakeups of a sub-issue when it goes `done`, so the stage-card wakeup (`#stage-wakeup`) dies exactly at the barrier moment; the parent-side `children_done` fires on barrier closure and is the primary barrier signal. The wakeup carries its own deadline: `--expires-in 24h --on-timeout wake` wakes the PM once (`wakeup.timeout` fact) when a stage has not closed in a day — re-check the executor, re-arm the deadline with a new one-shot wakeup. A promotion without the wakeup is a defect of the hand-off record (`#handoff-record`). A single daily backstop on the parent — verifying the chain, recreating a lost `children_done`, processing an unattended barrier — is the catastrophe net for a fully lost chain, not the primary signal; no periodic polling (owner decision 2026-09-30). A real executor failure still reaches the PM through the stage-card `task.failed` wakeup (`#stage-wakeup`), not through the barrier wakeup.
 
-Incident: [Z](incidents.md#inc-z) — owner decision 2026-09-30.
+Incident: [Z](incidents.md#inc-z) — owner decision 2026-09-30; [AA](incidents.md#inc-aa) — the one-shot mode.
+
+### A barrier already processed is a no-op wake; the system signal is not switched off `[review: PM @ wakeup]`
+<a id="barrier-dedup"></a>
+
+Today one barrier reaches the PM from two sources: the explicit `children_done` wakeup (`#barrier-wakeup`) and the platform's own child-completion notification, which the PM does not own and does not disable through the CLI — those rules belong to the owner. A one-shot explicit wakeup removes repeats of the explicit source only; it does not remove the system duplicate. Until the platform deduplicates the two, the PM makes the repeat cheap: at the barrier the last write of the run (`#barrier-procedure`, step 5) puts `last_barrier_stage` (the number of the stage whose barrier was processed) into the parent metadata. On any wake, after `#children-first`: if no stage above `last_barrier_stage` is terminal, the next stage is already promoted and nothing in the sub-issues changed status since — the wake is a repeat; the PM writes nothing to the tracker except the one required short reply ("barrier N already processed"), creates nothing, promotes nothing, and does not re-read the reports. A wake with a terminal stage above `last_barrier_stage`, a `wakeup.timeout` fact or a `task.failed` fact is a real event and goes through `#barrier-procedure`. Moving to one primary source (dropping either the explicit wakeup or the system notification) is an owner decision taken only after measured pipelines show the remaining source never lost a barrier; until then both stay, the explicit one-shot wakeup and the daily backstop are the insurance.
+
+Incident: [AA](incidents.md#inc-aa).
+
+### A wake with a server-side unchanged/delta report — read only the delta `[review: PM @ wakeup]`
+<a id="compact-wake-read"></a>
+
+When the per-turn message reports that the server compared the issue against the last run (unchanged) or hands the issue-wide comment delta as one `--since <anchor>` read, that report replaces the full issue read and the full comment scan: do not re-read the issue, do not pull the whole comment history, do not re-read reports already processed at an earlier barrier (`last_barrier_stage`). Reads stay bounded: `--compact`, `--roots-only --summary`, `--thread <id> --tail N`, `--since`; the parent metadata is read from the issue record, not reconstructed from comments. What the server did NOT check is still read: `#children-first` always runs (the layout is not part of the server comparison), and the report of a stage that just closed is read in full (`#barrier-procedure`, step 2). Without a server report the normal scan applies.
+
+Incident: [AA](incidents.md#inc-aa).
 
 ## Merge, git, PR
 
@@ -253,6 +267,6 @@ Incident: none
 ### Parent metadata keys `[review: PM @ stage barrier]`
 <a id="metadata-keys"></a>
 
-The PM wakes at the barrier with no memory of past rounds: the parent metadata is read first and written last. Keys: `impact_class` — the impact class (`impact-class.md#classify-first`); `review_rounds_spec` — the number of closed specification review rounds (`Stage: arch` counts as a specification round); `review_rounds_code` — the same for code; `last_round_findings` — how many confirmed findings the last round produced; `converging` — `true` if the number of findings falls from round to round; `findings_registry_issue` — the registry card id; `owner_decision` — the id of the comment with the owner decision; `repo` — the card's repository. Without these keys there is nothing to count the round limit from.
+The PM wakes at the barrier with no memory of past rounds: the parent metadata is read first and written last. Keys: `last_barrier_stage` — the number of the last stage whose barrier the PM processed (`#barrier-dedup`); `impact_class` — the impact class (`impact-class.md#classify-first`); `review_rounds_spec` — the number of closed specification review rounds (`Stage: arch` counts as a specification round); `review_rounds_code` — the same for code; `last_round_findings` — how many confirmed findings the last round produced; `converging` — `true` if the number of findings falls from round to round; `findings_registry_issue` — the registry card id; `owner_decision` — the id of the comment with the owner decision; `repo` — the card's repository. Without these keys there is nothing to count the round limit from.
 
 Incident: none
