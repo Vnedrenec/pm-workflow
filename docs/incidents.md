@@ -1,8 +1,6 @@
 # Incident resolver
 
-One address per incident. The identifier is a letter (after `Z` — `AA`, `AB`, …), the anchor `inc-<lowercase letter>`. A rule references an incident only by the anchor of this table: from `docs/*.md` — `incidents.md#<anchor>`; from `README.md`/`CHANGELOG.md` — `docs/incidents.md#<anchor>`; from a skill — as text `docs/incidents.md#<anchor>` (the skill is read outside the repository). The mapping of a letter to the tracker card, date, and primary record is kept in the private workspace registry, outside this repository; a rule references only the letter. The "Symptom" and "Consequence" columns are the basis of a rule: the rule is derived from them without reading the private table. The "Rules" column is reference-only (held by review, not CI).
-
-Past rows are not rewritten retroactively: an error is a new row referencing the old one. A new incident is the next letter here and a row in the private registry (`README.md`, "How to reference an incident").
+One address per incident: a letter id (after `Z` — `AA`, `AB`, …), anchor `inc-<lowercase>`. Reference from `docs/*.md` as `incidents.md#<anchor>`, from `README.md`/`CHANGELOG.md` as `docs/incidents.md#<anchor>`. Letter ↔ card, date and primary record live in the private workspace registry. "Symptom" and "Consequence" are the basis of a rule; "Rules" is reference-only (held by review). Rows are never rewritten: an error is a new row referencing the old one.
 
 | Anchor | Id | Symptom | Consequence | Rules |
 |---|---|---|---|---|
