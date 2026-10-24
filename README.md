@@ -36,7 +36,7 @@ Labels: `[CI: check]` (held by `scripts/check-rules.sh`) or `[review: <role> @ <
 2. Stop-word guard: structural patterns in `scripts/stop-words.txt`, exceptions in `scripts/stop-words-allow.txt`, literal names in the `STOP_WORDS_PRIVATE` secret (locally `STOP_WORDS_PRIVATE_FILE=<path> bash scripts/check-rules.sh --show`). Checks the tree, file names, PR title and commit messages; CI prints only `file:line` and the pattern number. False positive — a line in the allow list, never a weaker pattern. New name — `gh secret set STOP_WORDS_PRIVATE -R <owner>/<repository> < <private list>`.
 3. Edited `docs/` or `templates/` — `bash scripts/build-skills.sh`, commit `references/`. Never hand-edit `references/`.
 4. Rule change in substance — a `CHANGELOG.md` entry with the owner decision reference.
-5. Server skills: the workspace skills have no import origin, so `multica skill refresh` cannot run (`docs/autopilots/refresh-skills.md`). After merge: `multica skill get <id> --output json` immediately before `multica skill update` with the merged text, then read back and compare.
+5. Server skills: both skills are imported from this repository (`config.origin` → `skills/<name>` on `main`). After merge: `multica skill refresh <id>` for `pm-workflow` and `agent-runtime-gotchas`, then `multica skill get <id> --with-content` and compare with the tree (`docs/autopilots/refresh-skills.md`). `multica skill update` on these skills is forbidden: the next refresh overwrites it.
 
 ## Tree
 

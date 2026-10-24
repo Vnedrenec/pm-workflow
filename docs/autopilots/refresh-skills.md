@@ -1,8 +1,8 @@
 # Autopilot: refresh skills after merge
 
-Status: not operational. The workspace skills `agent-runtime-gotchas` and `pm-workflow` have no import origin (`config.origin` empty), so `multica skill refresh` has nothing to pull. Until the owner re-imports them from this repository (`multica skill import --url … --on-conflict overwrite` — rebinds agents, owner operation), synchronization is manual: `README.md`, "Editing", step 5.
+Synchronizes the `agent-runtime-gotchas` and `pm-workflow` skills with `main` of this repository. Both skills carry `config.origin` → `skills/<name>` on `main`, so `multica skill refresh <id>` re-downloads them, keeping id and agent bindings. Until the autopilot is created, the PM or the owner runs the steps by hand after every merge that touches `skills/`.
 
-Design once re-imported — triggers: GitHub webhook on push to `main` (URL and secret in the repository settings, not in documents) plus a nightly backup run. Mode `run_only`: no card, the trace is `multica autopilot runs`.
+Triggers: GitHub webhook on push to `main` (URL and secret in the repository settings, not in documents) plus a nightly backup run. Mode `run_only`: no card, the trace is `multica autopilot runs`.
 
 ```
 multica repo checkout <URL of this repository>
