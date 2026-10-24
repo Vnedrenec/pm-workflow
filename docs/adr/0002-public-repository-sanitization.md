@@ -2,7 +2,7 @@
 
 - Status: accepted (owner decision at parent acceptance; proposed 2026-09-18, D-9).
 - Author: Architect. Audit: Reviewer, one round, class `hygiene`.
-- Specification: `docs/superpowers/plans/2026-09-18-sanitize-pm-workflow.md`.
+- Specification: the sanitization plan, kept in the private archive (removed from the public tree 2026-10-24).
 
 ## Context
 

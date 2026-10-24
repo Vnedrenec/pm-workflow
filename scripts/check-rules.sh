@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Machine checks of the regulation — criteria 1–10 and 18–21 of the regulation-extraction
 # specification (in the private archive) and the stop-word guard per the sanitization
-# specification (docs/superpowers/plans/2026-09-18-sanitize-pm-workflow.md §6.5). Rule label: [CI: check].
+# specification (private archive). Rule label: [CI: check].
 #
 #   bash scripts/check-rules.sh                    # all checks; exit code 1 on any error
 #   bash scripts/check-rules.sh --show             # the guard prints matched fragments (local only)

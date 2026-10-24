@@ -40,4 +40,4 @@ Labels: `[CI: check]` (held by `scripts/check-rules.sh`) or `[review: <role> @ <
 
 ## Tree
 
-`docs/` — rules, `incidents.md`, `rule-index.tsv`, `required-checks.md`, `adr/`, `autopilots/`, `platform-requests/`, `superpowers/plans/`; `templates/`; `skills/`; `scripts/`; `.github/workflows/check.yml`; `CHANGELOG.md`.
+`docs/` — rules, `incidents.md`, `rule-index.tsv`, `required-checks.md`, `adr/`, `autopilots/`, `platform-requests/`; `templates/`; `skills/`; `scripts/`; `.github/workflows/check.yml`; `CHANGELOG.md`.
