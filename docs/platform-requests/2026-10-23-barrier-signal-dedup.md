@@ -1,6 +1,6 @@
 # Platform request: one barrier — one PM run
 
-Status: prepared, NOT sent; sending needs a separate owner permission. The system child-completion notification is not visible through the `multica` CLI (`multica issue wakeup --help`, `events`, `list/get/runs`), so its key and deduplication cannot be inspected from here.
+Status: superseded — Multica v0.13 merges the system notification with the explicit wakeup into one PM run (live probe, 2026-11-27); not sent. The system child-completion notification is not visible through the `multica` CLI (`multica issue wakeup --help`, `events`, `list/get/runs`), so its key and deduplication cannot be inspected from here.
 
 ## Observed (incident AA, `docs/incidents.md#inc-aa`)
 

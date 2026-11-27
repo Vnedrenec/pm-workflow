@@ -7,14 +7,11 @@ Workarounds only. Regulation (roles, barriers, score line, registry, round limit
 
 ## A. Multica platform
 
-### `mention-is-run` — a status change does not start a run, only a mention does
+### `mention-is-run` — only leaving `backlog` or a mention starts a run
 <a id="mention-is-run"></a>
-- To resume a card: comment with `[@Name](mention://agent/<agent-id>)`, then set `todo`, then confirm via `multica agent tasks <agent-id> --output json` that a task with that `issue_id` is `running`/`pending`/`queued`/`claimed`. No task — mention again.
-- Every mention is a paid run. Replies, thanks, FYI — without the link.
-
-### `rerun-after-promote` — after `blocked`, `todo` and `backlog → todo` create no task
-<a id="rerun-after-promote"></a>
-- Take the run ID from `multica issue runs <issue-id> --full-id`, then `multica issue rerun-task <run-id>`; it repeats that run with its original agent even after reassignment (`--fresh` for a new session and working directory). Verify with `multica issue runs <issue-id> --active`: no active run means no run.
+- `backlog → todo` starts the assignee's run unless an earlier-stage sibling is still open; so does creating an issue in `todo`. Confirm with `multica issue runs <issue-id> --active`.
+- Any other status change starts nothing, `blocked → todo` included. To resume: comment with `[@Name](mention://agent/<agent-id>)`, or repeat a run with `multica issue rerun-task <run-id>` (IDs from `multica issue runs <issue-id> --full-id`; `--fresh` for a new session and working directory).
+- A mention starts a run even past open earlier stages. Every mention is a paid run: replies, thanks, FYI — without the link.
 
 ### `in-review-not-terminal` — `in_review` does not close the stage barrier
 <a id="in-review-not-terminal"></a>
@@ -25,10 +22,6 @@ Workarounds only. Regulation (roles, barriers, score line, registry, round limit
 <a id="parent-backlog-first"></a>
 - Order: parent with `--status backlog`; sub-issues (first `todo`, rest `backlog`); metadata; only then `in_progress`. Raising from `backlog` wakes the PM once — expected.
 
-### `done-is-silent` — `done` is terminal and emits no events
-<a id="done-is-silent"></a>
-- Start the next card when the current one reaches `in_review`; name it in the acceptance comment. Do not wait for `done`.
-
 ### `cancel-does-not-stop` — `cancelled` and unassigning do not stop a run
 <a id="cancel-does-not-stop"></a>
 - Stop a started run with `multica issue cancel-task <run-id>`; the ID comes from `multica issue runs <issue-id> --active`. A wasted run costs the same as a needed one — do not start what you may cancel.
@@ -37,15 +30,15 @@ Workarounds only. Regulation (roles, barriers, score line, registry, round limit
 <a id="barrier-by-status"></a>
 - At the barrier read the report, not the status. Reviewer dead, panel done — run a separate synthesis stage (`pm-workflow` `docs/pipeline.md#synthesis-stage`).
 
-### `stage-wakeup-dies-at-done` — a sub-issue's wakeups are disabled at `done`
+### `stage-wakeup-dies-at-done` — an issue's wakeups are disabled at its `done`
 <a id="stage-wakeup-dies-at-done"></a>
-- The executor sets `done` inside its own run, so `task.completed` on the sub-issue never fires.
-- Primary barrier signal is a wakeup on the PARENT: `multica issue wakeup create <parent-id> --until-children-done --stage <N> --kind event --mode once --expires-in 24h --on-timeout wake` (one-shot: a barrier closes once). Set it at every promotion. Keep one daily backstop on the parent.
+- The executor sets `done` inside its own run, so `task.completed` on the sub-issue never fires. The barrier signal is a wakeup on the PARENT (`pm-workflow` `docs/pipeline.md#barrier-wakeup`).
+- To react to an issue's `done`, put the wakeup on another open issue: `--until-issue <id> --until-issue-state done`. A wakeup needs `--instruction`.
 
-### `system-child-done-duplicate` — the platform's child-completion notification duplicates the explicit barrier wakeup
+### `system-child-done-duplicate` — the platform also wakes the parent's assignee when a stage closes
 <a id="system-child-done-duplicate"></a>
-- After the PM creates or promotes the next stage, the system notification wakes the PM again for the barrier already processed. Cause not established; hypothesis — its deduplication key lacks parent + stage + completion generation.
-- Do not disable the system rule through the CLI (the owner manages it). Use a one-shot explicit wakeup (`--mode once`) and make the repeat cheap: the `last_barrier_stage` metadata check and the delta-only read (`pm-workflow` `docs/pipeline.md#barrier-dedup`, `#compact-wake-read`).
+- It fires when the next stage holds a `backlog` sub-issue and normally merges with the explicit wakeup into one run. A `todo` next stage starts by itself and the parent is not woken.
+- Agents cannot disable it. A repeat wake is a no-op per `pm-workflow` `docs/pipeline.md#barrier-dedup`.
 
 ### `model-not-in-task` — the run model is not self-reportable; read it from the run's usage
 <a id="model-not-in-task"></a>
@@ -77,15 +70,9 @@ Do not trust sub-issue status. Reconcile `multica agent tasks <agent-id> --outpu
 ### Antigravity passes the whole catalog line into `--model`
 `agy models` prints `id<TAB>Name`; the daemon passes the full line and `agy` fails with `invalid model selection`. Clear `model` on the agent and pass `--custom-args '["--model","gemini-3.1-pro-high"]'`. `agy -p --model <nonexistent>` silently falls back to the default — a successful run does not prove the requested model ran.
 
-### Limits and peak hours
-- **Grok**: free `grok-4.6` limit is 500k tokens/day; a large-diff audit is ~525k — cannot finish one round. Key resolution order is `api_key` → `env_key` → session → `XAI_API_KEY`; to make the key win set `~/.grok/config.toml`: `[models."grok-4.6"] env_key = "XAI_API_KEY"`.
-- **GLM (Z.AI)**: peak Mon–Fri 06:00–10:00 UTC, off-peak rate is 50%. Unpaid plan → `Insufficient balance or no resource package`; after payment a failed task does not restart itself — `multica issue rerun`.
-- **DeepSeek**: peak 01:00–04:00 and 06:00–10:00 UTC, off-peak is half price.
-- Do not assemble a round 06:00–10:00 UTC (peak for both DeepSeek and GLM).
-
 ### Claude refusals on a brief and routing
 Claude returns `API Error: safeguards flagged this message` before the model works when a brief reads as bypassing a safeguard, even one's own. Triggers: "get around the guard", "find a way out", "slip past the check", "check that the workaround breaks the build". Defensive framing helps unreliably.
-Routing: demonstrating a violation → GLM (`glm-5.3`) or DeepSeek Pro; divergence from intent and completeness → Fable, worded as "coverage completeness".
+Routing: demonstrating a violation → a non-Claude line; divergence from intent and completeness → Fable, worded as "coverage completeness".
 
 ### Parallel runs fight over the npm cache
 Concurrent `npm ci` into shared `~/.npm` fails other runs with `EACCES ... rename ... _cacache`. Every executor brief: `npm ci --cache ./.npm-cache`.
