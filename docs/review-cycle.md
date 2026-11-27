@@ -87,7 +87,7 @@ One model per family. Composition: a strong model for "find the hole" and "bound
 
 Scores live in git: the workspace repository with description `scorecard`, address via `multica repo list`, never from memory. The Reviewer writes its own rows — one PR per run, file `data/rows.d/<YYYY-MM-DD>-<task-slug>-<agent-slug>.csv`. Gate: the second line of the Reviewer report is `Scorecard: <PR URL>` and that PR holds exactly one file matching the mask for the round date and task; PM check — `gh pr view <URL> --json files --jq '.files[].path'`. Merging the PR is the owner's job and does not block. No `gh` or no permissions — `Scorecard: blocked — <reason>`, the round does NOT close, the PM escalates within the hour.
 
-### The run model — only from `multica runtime usage` `[review: Reviewer @ scorecard line]`
+### The run model — only from the run's usage `[review: Reviewer @ scorecard line]`
 <a id="model-from-usage"></a>
 
-Never ask an agent which model it runs on; never write a "Model: …" line into a specification. Source: `multica runtime usage <runtime-id> --days 1 --output json` — one row per model with `input_tokens`, `output_tokens`, `cache_read_tokens`, and whether `thinking_level` applied (`agent-runtime-gotchas#model-not-in-task`). Model unconfirmed by accounting — the scorecard row is marked unreliable as to model.
+Never ask an agent which model it runs on; never write a "Model: …" line into a specification. Source: `usage[].model` of the run in `multica issue runs <issue-id> --output json` (`agent-runtime-gotchas#model-not-in-task`). Model unconfirmed by accounting — the scorecard row is marked unreliable as to model.

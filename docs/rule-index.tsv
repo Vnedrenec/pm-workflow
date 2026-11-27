@@ -48,7 +48,7 @@ Every round finds its own layer; give the reviewer the intent; reproduce a findi
 An (agent, question) pair does not repeat two rounds in a row	docs/review-cycle.md#panel
 One representative of a model family per round; the run table	docs/review-cycle.md#one-per-family
 Scorecard — a row per run, the round closure gate	docs/review-cycle.md#scorecard
-The run model — only from `multica runtime usage`	docs/review-cycle.md#model-from-usage
+The run model — only from the run's usage	docs/review-cycle.md#model-from-usage
 The class is set before the promotion of stage 1	docs/impact-class.md#classify-first
 `hygiene` — one round each, no cycle until convergence	docs/impact-class.md#hygiene
 Limits table per class	docs/impact-class.md#limits-table
@@ -68,8 +68,8 @@ layer 1: `done` is terminal and emits no events	skills/agent-runtime-gotchas/SKI
 layer 1: After `blocked` neither `todo` nor `backlog → todo` creates a task	skills/agent-runtime-gotchas/SKILL.md#rerun-after-promote
 layer 1: `cancelled` and unassigning the executor do not stop the run	skills/agent-runtime-gotchas/SKILL.md#cancel-does-not-stop
 layer 1: The barrier triggers on statuses, not on the presence of a report	skills/agent-runtime-gotchas/SKILL.md#barrier-by-status
-layer 1: The run model is not stored in the task and is undeterminable from inside	skills/agent-runtime-gotchas/SKILL.md#model-not-in-task
-layer 1: `multica skill update` overwrites without versions or rollback	skills/agent-runtime-gotchas/SKILL.md#skill-no-versions
+layer 1: The run model is not self-reportable; read it from the run's usage	skills/agent-runtime-gotchas/SKILL.md#model-not-in-task
+layer 1: `multica skill update` without `--base-revision` overwrites silently	skills/agent-runtime-gotchas/SKILL.md#skill-no-versions
 layer 1: `daemon restarted while task was in flight` — the platform restarts on its own	skills/agent-runtime-gotchas/SKILL.md#daemon-restart-retry
 layer 1: `2>&1` when parsing `--output json` makes a successful write look like a failure	skills/agent-runtime-gotchas/SKILL.md#json-no-stderr-merge
 layer 1: A long-lived `multica` process is the workspace daemon	skills/agent-runtime-gotchas/SKILL.md#never-kill-multica-by-name

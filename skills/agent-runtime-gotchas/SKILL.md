@@ -14,7 +14,7 @@ Workarounds only. Regulation (roles, barriers, score line, registry, round limit
 
 ### `rerun-after-promote` — after `blocked`, `todo` and `backlog → todo` create no task
 <a id="rerun-after-promote"></a>
-- Use `multica issue rerun <issue-id>`; it creates and starts a task for the current assignment. Verify in `multica agent tasks`: no task newer than the promotion means no run.
+- Take the run ID from `multica issue runs <issue-id> --full-id`, then `multica issue rerun-task <run-id>`; it repeats that run with its original agent even after reassignment (`--fresh` for a new session and working directory). Verify with `multica issue runs <issue-id> --active`: no active run means no run.
 
 ### `in-review-not-terminal` — `in_review` does not close the stage barrier
 <a id="in-review-not-terminal"></a>
@@ -31,7 +31,7 @@ Workarounds only. Regulation (roles, barriers, score line, registry, round limit
 
 ### `cancel-does-not-stop` — `cancelled` and unassigning do not stop a run
 <a id="cancel-does-not-stop"></a>
-- A started run is stopped only in the UI; the CLI has no stop. A wasted run costs the same as a needed one — do not start what you may cancel.
+- Stop a started run with `multica issue cancel-task <run-id>`; the ID comes from `multica issue runs <issue-id> --active`. A wasted run costs the same as a needed one — do not start what you may cancel.
 
 ### `barrier-by-status` — the barrier closes on statuses, not on reports
 <a id="barrier-by-status"></a>
@@ -47,14 +47,14 @@ Workarounds only. Regulation (roles, barriers, score line, registry, round limit
 - After the PM creates or promotes the next stage, the system notification wakes the PM again for the barrier already processed. Cause not established; hypothesis — its deduplication key lacks parent + stage + completion generation.
 - Do not disable the system rule through the CLI (the owner manages it). Use a one-shot explicit wakeup (`--mode once`) and make the repeat cheap: the `last_barrier_stage` metadata check and the delta-only read (`pm-workflow` `docs/pipeline.md#barrier-dedup`, `#compact-wake-read`).
 
-### `model-not-in-task` — the run model is not stored and not self-reportable
+### `model-not-in-task` — the run model is not self-reportable; read it from the run's usage
 <a id="model-not-in-task"></a>
-- The harness injects a product persona; task records and argv do not hold the model. Self-reports are unreliable.
-- Only `multica runtime usage <runtime-id> --days 1 --output json` (one row per model) proves the model. Antigravity reports no usage at all. Without proof mark the scorecard row "model unverified".
+- The harness injects a product persona; self-reports are unreliable.
+- The model is in the run record: `usage[].model` in `multica issue runs <issue-id> --output json`. A run without `usage` proves nothing — mark the scorecard row "model unverified".
 
-### `skill-no-versions` — `multica skill update` overwrites without versions
+### `skill-no-versions` — `multica skill update` without `--base-revision` overwrites silently
 <a id="skill-no-versions"></a>
-- Run `multica skill get <id> --output json` IMMEDIATELY before `update`, edit that text, write exactly it back. Verify with a marker absent from the old edition.
+- `multica skill get <id> --output json`, edit that text, write it back with `multica skill update <id> --base-revision <revision from get>`. A conflict means someone saved since: get again and reapply. A skill with `config.origin` is changed only in its repository, then `multica skill refresh <id>`.
 
 ### `daemon-restart-retry` — `daemon restarted while task was in flight`
 <a id="daemon-restart-retry"></a>
