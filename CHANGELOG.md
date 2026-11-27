@@ -2,6 +2,12 @@
 
 One entry = one owner decision or one reconciliation. Heading `## YYYY-MM-DD — <gist>`, four lines `Decision / What changed / Incident / Affected` (held by `scripts/check-rules.sh`; entries before 2026-09-21 keep Russian field names). New entries on top. No rule change in substance without an entry. Entries up to 2026-09-10 are retroactive from the private PM-instructions snapshot. Decision reference — date and `D-N`; the `D-N` ↔ comment mapping is in the private registry.
 
+## 2026-11-27 — stage start and barrier rules follow the platform's native behaviour
+- Decision: owner, 2026-11-27 (chat decision: move the regulation to what the platform now does itself; premises verified by live probes on the workspace — `backlog → todo` starts a run, `blocked → todo` does not, a `todo` next stage starts when the previous one closes, an explicit `children_done` wakeup and the system notification yield one PM run).
+- What changed: `docs/pipeline.md` — `#start-order` promotes the parent with `--no-start` and states why later stages are created `backlog`; `#barrier-procedure` step 6 and `#resume-by-mention` — leaving `backlog` starts the run, a mention only resumes a started card, runs are verified with `multica issue runs --active`; `#mention-policy` — no mention for a new or promoted sub-issue; `#barrier-wakeup` loses a rationale sentence; `#barrier-dedup` shortened. `skills/agent-runtime-gotchas/SKILL.md` — `#mention-is-run` rewritten and absorbs `#rerun-after-promote`; `#done-is-silent` folded into `#stage-wakeup-dies-at-done`; `#system-child-done-duplicate` describes the fixed behaviour; the limits section for providers without an active agent is removed.
+- Incident: none.
+- Affected: `docs/pipeline.md`, `skills/agent-runtime-gotchas/SKILL.md`, `docs/rule-index.tsv`, `skills/pm-workflow/references/pipeline.md` (rebuilt).
+
 ## 2026-11-27 — workarounds reconciled with Multica v0.13 CLI
 - Decision: owner, 2026-11-27 (chat decision: review the agent skills against the current product and fix what the platform has since closed).
 - What changed: `skills/agent-runtime-gotchas/SKILL.md` — `#rerun-after-promote` uses `multica issue rerun-task <run-id>` (`issue rerun` is deprecated); `#cancel-does-not-stop` stops a run with `multica issue cancel-task <run-id>` instead of the UI; `#model-not-in-task` reads the model from `usage[].model` of the run; `#skill-no-versions` writes with `--base-revision`. `docs/review-cycle.md#model-from-usage` — the source of the run model is the run's usage, not `multica runtime usage`.

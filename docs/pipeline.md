@@ -10,7 +10,9 @@ Rule address — `pipeline.md#<anchor>`. Multica statuses: `todo / in_progress /
 1. Parent — `--status backlog`.
 2. Sub-issues: first stage `todo`, the rest `backlog`.
 3. Metadata (`#metadata-keys`) and impact class (`impact-class.md#classify-first`).
-4. `multica issue status <parent-id> in_progress`. This wakes the PM once — expected.
+4. `multica issue status <parent-id> in_progress --no-start` — the PM is already running; without `--no-start` this wakes the PM once more.
+
+Later stages are created `backlog`, never `todo`: a `todo` stage starts by itself when the previous one closes, with no PM verdict.
 
 A parent created in any other status starts a second PM run that builds its own sub-issues.
 
@@ -44,7 +46,7 @@ A barrier closes when ALL sub-issues of the stage are `done` or `cancelled`. `in
 3. Read the parent metadata (`#metadata-keys`).
 4. Decide: no findings → next stage; findings below the class limit → rework stage, then a new review stage; limit reached → parent `blocked`, owner (`review-cycle.md#fuse`, `impact-class.md#limits-table`); scope change → owner regardless of the counter (`ownership.md#scope-change`).
 5. Write the metadata, including `last_barrier_stage` (`#barrier-dedup`).
-6. Promote: `multica issue status <child-id> todo`.
+6. Promote: `multica issue status <child-id> todo` — leaving `backlog` starts the executor's run, no mention. Verify with `multica issue runs <child-id> --active`; no run means an earlier-stage sub-issue is still open.
 
 Before promotion read the sub-issue body: unmet dependencies or a contradiction with the parent layout — leave it in `backlog` and ask.
 
@@ -130,12 +132,12 @@ First line `Subagents: none started`. Then five non-empty sections: (1) gates �
 ### Resuming work — only by mentioning the executor `[review: PM @ resume comment]`
 <a id="resume-by-mention"></a>
 
-A status change starts no run (`agent-runtime-gotchas#mention-is-run`). Any resuming comment — unblocking, owner decision, rework, "continue" — mentions the executor `[@Name](mention://agent/<agent-id>)`. Order: (1) comment with the specification AND the mention; (2) `multica issue status <id> todo`; (3) `multica agent tasks <agent-id> --output json` shows a task with that `issue_id` in `running`/`pending`/`queued`/`claimed`; otherwise mention again. A question to the owner does not replace the executor mention — two addressees, two comments.
+Only leaving `backlog` starts a run; any other status change starts none (`agent-runtime-gotchas#mention-is-run`). Resuming a started card — unblocking, owner decision, rework, "continue" — needs a comment that mentions the executor `[@Name](mention://agent/<agent-id>)`. Order: (1) comment with the specification AND the mention; (2) `multica issue status <id> todo`; (3) `multica issue runs <id> --active` shows a run; otherwise mention again. Never mention and promote out of `backlog` for the same start — two paid runs. A question to the owner does not replace the executor mention — two addressees, two comments.
 
 ### A mention = a paid run `[review: PM @ comment]`
 <a id="mention-policy"></a>
 
-Mention only when a run is needed (`#resume-by-mention`, a new sub-issue). Reply, thanks, FYI, reference — no link. Never mention an agent that just finished: agent-to-agent loop. Silence ends a conversation.
+Mention only when a run is needed (`#resume-by-mention`). A new sub-issue in `todo` and a promotion out of `backlog` start by themselves — no mention. Reply, thanks, FYI, reference — no link. Never mention an agent that just finished: agent-to-agent loop. Silence ends a conversation.
 
 ### A blocked stage wakes the PM — the report mentions the PM by link `[review: PM @ stage barrier]`
 <a id="blocked-mentions-pm"></a>
@@ -150,12 +152,12 @@ At every promotion: a continuous event wakeup on the stage sub-issue for `task.c
 ### `children_done` wakeup on the parent — the primary barrier signal, one-shot `[review: PM @ promotion]`
 <a id="barrier-wakeup"></a>
 
-At every promotion: `multica issue wakeup create <parent-id> --until-children-done --stage <N> --kind event --mode once --expires-in 24h --on-timeout wake`, with a self-sufficient instruction: layout check, report read, verdict per `#barrier-procedure`, and the same wakeup for the stage that run promotes. One-shot because a barrier closes once; a sub-issue added later to the next stage cannot re-fire it. `--mode continuous --max-fires N` only when the PM will add sub-issues to the SAME stage after promotion, reason in the hand-off record. `wakeup.timeout` after 24h: re-check the executor, re-arm a new one-shot wakeup. Missing — a hand-off record defect. One daily backstop on the parent (verify the chain, recreate a lost `children_done`, process an unattended barrier) is the net, not the signal; no periodic polling. An executor failure arrives via the stage-card `task.failed` wakeup (`#stage-wakeup`).
+At every promotion: `multica issue wakeup create <parent-id> --until-children-done --stage <N> --kind event --mode once --expires-in 24h --on-timeout wake`, with a self-sufficient instruction: layout check, report read, verdict per `#barrier-procedure`, and the same wakeup for the stage that run promotes. `--mode continuous --max-fires N` only when the PM will add sub-issues to the SAME stage after promotion, reason in the hand-off record. `wakeup.timeout` after 24h: re-check the executor, re-arm a new one-shot wakeup. Missing — a hand-off record defect. One daily backstop on the parent (verify the chain, recreate a lost `children_done`, process an unattended barrier) is the net, not the signal; no periodic polling. An executor failure arrives via the stage-card `task.failed` wakeup (`#stage-wakeup`).
 
 ### A barrier already processed is a no-op wake; the system signal stays on `[review: PM @ wakeup]`
 <a id="barrier-dedup"></a>
 
-One barrier wakes the PM twice: the explicit `children_done` wakeup and the platform's child-completion notification, which the PM does not disable. Dedup by metadata: step 5 of `#barrier-procedure` writes `last_barrier_stage`. On any wake, after `#children-first`: no terminal stage above `last_barrier_stage`, the next stage already promoted, no sub-issue status change since — a repeat: one short reply ("barrier N already processed"), nothing created, promoted or re-read. A terminal stage above `last_barrier_stage`, a `wakeup.timeout` or a `task.failed` — a real event, `#barrier-procedure`. Dropping either source — an owner decision.
+The platform's own child-completion notification can wake the PM for a barrier the explicit `children_done` wakeup already delivered; the PM does not disable it. Dedup by metadata: step 5 of `#barrier-procedure` writes `last_barrier_stage`. On any wake, after `#children-first`: no terminal stage above `last_barrier_stage`, no `wakeup.timeout`, no `task.failed` — a repeat: one short reply ("barrier N already processed"), nothing created, promoted or re-read. Otherwise `#barrier-procedure`. Dropping either source — an owner decision.
 
 ### A wake with a server-side unchanged/delta report — read only the delta `[review: PM @ wakeup]`
 <a id="compact-wake-read"></a>
